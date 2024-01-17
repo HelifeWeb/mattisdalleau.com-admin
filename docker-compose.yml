@@ -1,0 +1,178 @@
+version: '3.3'
+
+services:
+        hdci-traefik:
+                hostname: hdci-traefik
+                container_name: hdci-traefik
+
+                image: traefik:v2.2
+                restart: always
+                ports:
+                        - 80:80
+                        - 443:443
+                        - 8080:8080
+            
+                volumes:
+                        - /var/run/docker.sock:/var/run/docker.sock:ro
+                        - ${HDCI_FOLDER}/traefik/letsecnrypt:/letsencrypt
+                        - ${HDCI_FOLDER}/traefik/logs:/var/log/traefik
+
+                command:
+                        - "--log.level=${TRAEFIK_LOG_LEVEL}"
+                        - "--accessLog.filePath=/var/log/traefik/access.log"
+
+                        - "--api.insecure=false"
+                        - "--api.dashboard=false"
+
+                        - "--entrypoints.web.address=:80"
+                        - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+                        - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+                        - "--entrypoints.web.http.redirections.entryPoint.permanent=true"
+                        - "--entrypoints.websecure.address=:443"
+
+                        - "--providers.docker=true"
+                        - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+                        - "--providers.docker.exposedByDefault=false"
+                        - "--providers.docker.watch=true"
+
+                        - "--certificatesresolvers.cloudflare.acme.dnschallenge=true"
+                        - "--certificatesresolvers.cloudflare.acme.dnschallenge.provider=cloudflare"
+                        - "--certificatesresolvers.cloudflare.acme.storage=/letsencrypt/acme.json"
+
+                environment:
+                        CF_API_EMAIL: ${CLOUDFLARE_API_EMAIL}
+                        CF_API_KEY: ${CLOUDFLARE_API_KEY}
+
+        # Testing purposes
+        hdci-whoami-traefik:
+                depends_on:
+                        - hdci-traefik
+
+                hostname: hdci-whoami-traefik
+                container_name: hdci-whoami-traefik
+
+                image: traefik/whoami
+                restart: always
+                labels:
+                        - "traefik.enable=true"
+                        - "traefik.http.routers.whoami.rule=Host(`whoami.${HDCI_DOMAIN}`)"
+                        - "traefik.http.routers.whoami.entrypoints=web,websecure"
+                        - "traefik.http.routers.whoami.tls.certResolver=cloudflare"
+
+        hdci-drone-server:
+                depends_on:
+                        - hdci-traefik
+
+                hostname: hdci-drone-server
+                container_name: hdci-drone-server
+
+                image: drone/drone:2
+                volumes:
+                        - ${HDCI_FOLDER}/drone/data:/data
+
+                restart: always
+                environment:
+                        HDCI_DOMAIN: ${HDCI_DOMAIN}
+                        # base
+                        DRONE_SERVER_HOST: drone.${HDCI_DOMAIN}
+                        DRONE_GITHUB_CLIENT_ID: ${DRONE_GITHUB_CLIENT_ID}
+                        DRONE_GITHUB_CLIENT_SECRET: ${DRONE_GITHUB_CLIENT_SECRET}
+                        DRONE_RPC_SECRET: ${DRONE_RPC_SECRET}
+                        DRONE_USER_FILTER: ${DRONE_USER_FILTER}
+                        # Server
+                        DRONE_SERVER_PROTO: ${DRONE_SERVER_PROTO}
+                        DRONE_TLS_AUTOCERT: ${DRONE_TLS_AUTOCERT}
+                        DRONE_USER_CREATE: ${DRONE_USER_CREATE}
+                        DRONE_DATABASE_SECRET: ${DRONE_DATABASE_SECRET}
+                        # Logs
+                        DRONE_LOGS_DEBUG: ${DRONE_LOGS_DEBUG}
+                        DRONE_LOGS_TEXT: ${DRONE_LOGS_TEXT}
+                        DRONE_LOGS_PRETTY: ${DRONE_LOGS_PRETTY}
+                        DRONE_LOGS_COLOR: ${DRONE_LOGS_COLOR}
+                        DRONE_LOGS_TRACE: ${DRONE_LOGS_TRACE}
+                        # Misc.
+                        TZ: ${DRONE_TZ}
+
+                labels:
+                        - "traefik.enable=true"
+                        - "traefik.http.routers.drone.entrypoints=web,websecure"
+                        - "traefik.http.routers.drone.rule=Host(`drone.${HDCI_DOMAIN}`)"
+                        - "traefik.http.routers.drone.tls.certResolver=cloudflare"
+
+        hdci-drone-runner-docker:
+                hostname: hdci-drone-runner-docker
+                container_name: hdci-drone-runner-docker
+
+                depends_on:
+                        - hdci-drone-server
+
+                image: drone/drone-runner-docker:1
+                volumes:
+                        - /var/run/docker.sock:/var/run/docker.sock
+                restart: always
+                environment:
+                        DRONE_RPC_PROTO: https
+                        DRONE_RPC_HOST: drone.${HDCI_DOMAIN}
+                        DRONE_RPC_SECRET: ${DRONE_RPC_SECRET}
+                        DRONE_RUNNER_CAPACITY: ${DRONE_RUNNER_CAPACITY}
+                        DRONE_RUNNER_NAME: hdci-drone-runner-docker
+
+        hdci-registry:
+                depends_on:
+                        - hdci-traefik
+
+                image: registry:2
+                hostname: hdci-registry
+                container_name: hdci-registry
+                restart: always
+                ports:
+                        - 5000:5000
+                environment:
+                        REGISTRY_AUTH: htpasswd
+                        REGISTRY_AUTH_HTPASSWD_REALM: Registry
+                        REGISTRY_AUTH_HTPASSWD_PATH: /registry/auth/.htpasswd
+                        REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /registry/data
+                        REGISTRY_HTTP_RELATIVEURLS: "true"
+
+                volumes:
+                        - ${HDCI_FOLDER}/registry/:/registry
+                labels:
+                        - "traefik.enable=true"
+                        - "traefik.http.routers.registry.entrypoints=web,websecure"
+                        - "traefik.http.routers.registry.rule=Host(`registry.${HDCI_DOMAIN}`)"
+                        - "traefik.http.routers.registry.tls.certResolver=cloudflare"
+                        - "traefik.http.services.registry.loadbalancer.server.port=5000"
+                        #- "traefik.http.middlewares.limit.bufferring.maxRequestBodyBytes=17179869184" # 16GB
+
+        hdci-watchtower:
+                depends_on:
+                        - hdci-registry
+
+                image: index.docker.io/containrrr/watchtower:latest
+                hostname: hdci-watchtower
+                container_name: hdci-watchtower
+                restart: always
+                volumes:
+                        - /var/run/docker.sock:/var/run/docker.sock
+                        - ${HDCI_FOLDER}/registry/auth/watchtower:/config
+                        - /etc/localtime:/etc/localtime:ro
+                command: --interval ${WATCHTOWER_INTERVAL} --cleanup
+                environment:
+                        DOCKER_CONFIG: /config
+
+        hdci-portainer:
+                image: portainer/portainer-ce:latest
+                hostname: hdci-portainer
+                container_name: hdci-portainer
+                restart: always
+                volumes:
+                        - ${HDCI_FOLDER}/portainer/data:/data
+                        - /var/run/docker.sock:/var/run/docker.sock
+                ports:
+                        - 9000:9000
+
+networks:
+        hdci-network:
+        default:
+                external:
+                        name: hdci-network

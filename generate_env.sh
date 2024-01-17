@@ -1,0 +1,78 @@
+#!/bin/sh
+
+ask_yes_no() {
+	while true; do
+		read -p "$1 [y/n] " yn
+		case $yn in
+			[Yy]* ) return 0;;
+			[Nn]* ) return 1;;
+			* ) echo "Please answer yes or no.";;
+		esac
+	done
+}
+
+should_generate_registry_secrets() {
+	if [ -f $HDCI_FOLDER/registry/auth/.htpasswd ] || [ -f $HDCI_FOLDER/registry/auth/watchtower/config.json ]; then
+		ask_yes_no "Registry secrets already exist. (maybe partially) Do you want to generate them again?"
+		return $?
+	fi
+	return 0
+}
+
+generate_registry_secrets() {
+	rm -rf $HDCI_FOLDER/registry/auth
+	mkdir -p $HDCI_FOLDER/registry/auth/watchtower
+	user=$(generate_secret)
+	pass=$(generate_secret)
+	htpasswd -Bbc $HDCI_FOLDER/registry/auth/.htpasswd $user $pass
+	cat << EOF > $HDCI_FOLDER/registry/auth/watchtower/config.json
+{
+	"auths": {
+		"localhost:5000": {
+			"auth": "$(echo "$user:$pass" | base64 -w 0)"
+		},
+		# alias for localhost
+		"registry.$1": {
+			"auth": "$(echo "$user:$pass" | base64 -w 0)"
+		}
+	}
+}
+EOF
+}
+
+PASSWORD_LENGTH=64
+
+generate_secret() {
+	openssl rand -hex $PASSWORD_LENGTH
+}
+
+if [ -z ${HDCI_FOLDER} ]; then
+	echo "HDCI_FOLDER is not set"
+	echo "Using default value: /var/lib/hdci"
+	HDCI_FOLDER=/var/lib/hdci
+fi
+
+if [ $# -ne 6 ]; then
+	echo "$0 <DOMAIN_NAME> <GITHUB_USER> <CLOUDFLARE_API_EMAIL> <CLOUDFLARE_API_KEY> <DRONE_GITHUB_CLIENT_ID> <DRONE_GITHUB_CLIENT_SECRET> <GITHUB_FILTERING>"
+	echo "GITHUB_FILTERING can either be users or orgs separated by a comma"
+	echo "If GITHUB_FILTERING is empty, all users and orgs will be allowed this is VERY DANGEROUS"
+	exit 1
+fi
+
+cat .env.example | \
+	sed "s/{{DOMAIN}}/$1/g" | \
+	sed "s/{{GITHUB_USER}}/$2/g" | \
+	sed "s/{{CLOUDFLARE_API_EMAIL}}/$3/g" | \
+	sed "s/{{CLOUDFLARE_API_KEY}}/$4/g" | \
+	sed "s/{{DRONE_GITHUB_CLIENT_ID}}/$5/g" | \
+	sed "s/{{DRONE_GITHUB_CLIENT_SECRET}}/$6/g" | \
+	sed "s/{{DRONE_RPC_SECRET}}/$(generate_secret)/g" | \
+	sed "s/{{GITHUB_FILTERING}}/$7/g" | \
+	sed "s/{{DRONE_DATABASE_SECRET}}/$(generate_secret)/g" | \
+	sed "s/{{HDCI_FOLDER}}/$HDCI_FOLDER/g" > .env
+
+if should_generate_registry_secrets; then
+	generate_registry_secrets $1
+else
+	echo "Skipping registry secrets generation"
+fi
