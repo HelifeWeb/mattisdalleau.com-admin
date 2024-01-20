@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-required_commands="openssl curl htpasswd"
+required_commands="openssl curl htpasswd jq base64"
 
 for command in $required_commands; do
 	if ! command -v $command > /dev/null; then
@@ -34,15 +34,16 @@ generate_registry_secrets() {
 	user=$(generate_secret)
 	pass=$(generate_secret)
 	htpasswd -Bbc $HDCI_FOLDER/registry/auth/.htpasswd $user $pass
-	cat << EOF > $HDCI_FOLDER/registry/auth/watchtower/config.json
+	auth=$(echo "$user:$pass" | base64 -w 0)
+
+	cat << EOF | jq -c > $HDCI_FOLDER/registry/auth/watchtower/config.json
 {
 	"auths": {
 		"localhost:5000": {
-			"auth": "$(echo "$user:$pass" | base64 -w 0)"
+			"auth": "$auth"
 		},
-		# alias for localhost
 		"registry.$1": {
-			"auth": "$(echo "$user:$pass" | base64 -w 0)"
+			"auth": "$auth"
 		}
 	}
 }
