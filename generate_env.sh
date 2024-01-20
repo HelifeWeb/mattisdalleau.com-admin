@@ -1,4 +1,13 @@
-#!/bin/sh
+#!/bin/sh -e
+
+required_commands="openssl curl htpasswd"
+
+for command in $required_commands; do
+	if ! command -v $command > /dev/null; then
+		echo "Missing required executable: $command" >&2
+		exit 1
+	fi
+done
 
 ask_yes_no() {
 	while true; do
@@ -59,6 +68,11 @@ if [ $# -ne 6 ]; then
 	exit 1
 fi
 
+cloudflare_trusted_ipv4=$(curl -s https://www.cloudflare.com/ips-v4 | tr '\n' ',')
+cloudflare_trusted_ipv6=$(curl -s https://www.cloudflare.com/ips-v6 | tr '\n' ',')
+cloudflare_trusted_ips="$cloudflare_trusted_ipv4,$cloudflare_trusted_ipv6"
+cloudflare_trusted_ips=$(echo $cloudflare_trusted_ips | sed 's/,$//g' | sed 's/,,/,/g')
+
 cat .env.example | \
 	sed "s/{{DOMAIN}}/$1/g" | \
 	sed "s/{{GITHUB_USER}}/$2/g" | \
@@ -69,7 +83,8 @@ cat .env.example | \
 	sed "s/{{DRONE_RPC_SECRET}}/$(generate_secret)/g" | \
 	sed "s/{{GITHUB_FILTERING}}/$7/g" | \
 	sed "s/{{DRONE_DATABASE_SECRET}}/$(generate_secret)/g" | \
-	sed "s/{{HDCI_FOLDER}}/$HDCI_FOLDER/g" > .env
+	sed "s/{{HDCI_FOLDER}}/$HDCI_FOLDER/g" | \
+	sed "s/{{CLOUDFLARE_TRUSTED_IPS}}/$cloudflare_trusted_ips/g" > .env
 
 if should_generate_registry_secrets; then
 	generate_registry_secrets $1
