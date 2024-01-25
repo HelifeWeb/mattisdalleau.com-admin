@@ -62,7 +62,7 @@ if [ -z ${HDCI_FOLDER} ]; then
 	HDCI_FOLDER=/var/lib/hdci
 fi
 
-if [ $# -ne 6 ]; then
+if [ $# -ne 7 ]; then
 	echo "$0 <DOMAIN_NAME> <GITHUB_USER> <CLOUDFLARE_API_EMAIL> <CLOUDFLARE_API_KEY> <DRONE_GITHUB_CLIENT_ID> <DRONE_GITHUB_CLIENT_SECRET> <GITHUB_FILTERING>"
 	echo "GITHUB_FILTERING can either be users or orgs separated by a comma"
 	echo "If GITHUB_FILTERING is empty, all users and orgs will be allowed this is VERY DANGEROUS"
