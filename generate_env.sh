@@ -36,7 +36,7 @@ generate_registry_secrets() {
 	htpasswd -Bbc $HDCI_FOLDER/registry/auth/.htpasswd $user $pass
 	auth=$(echo "$user:$pass" | base64 -w 0)
 
-	cat << EOF | jq -c > $HDCI_FOLDER/registry/auth/watchtower/config.json
+	cat << EOF > $HDCI_FOLDER/registry/auth/watchtower/config.json
 {
 	"auths": {
 		"localhost:5000": {
@@ -48,12 +48,17 @@ generate_registry_secrets() {
 	}
 }
 EOF
+	
 }
 
 PASSWORD_LENGTH=64
 
 generate_secret() {
-	openssl rand -hex $PASSWORD_LENGTH
+	current=$PASSWORD_LENGTH
+	if [ ! -z "$1" ]; then
+		current=$1
+	fi
+	openssl rand -hex $current
 }
 
 if [ -z ${HDCI_FOLDER} ]; then
@@ -62,7 +67,7 @@ if [ -z ${HDCI_FOLDER} ]; then
 	HDCI_FOLDER=/var/lib/hdci
 fi
 
-if [ $# -ne 6 ]; then
+if [ $# -ne 7 ]; then
 	echo "$0 <DOMAIN_NAME> <GITHUB_USER> <CLOUDFLARE_API_EMAIL> <CLOUDFLARE_API_KEY> <DRONE_GITHUB_CLIENT_ID> <DRONE_GITHUB_CLIENT_SECRET> <GITHUB_FILTERING>"
 	echo "GITHUB_FILTERING can either be users or orgs separated by a comma"
 	echo "If GITHUB_FILTERING is empty, all users and orgs will be allowed this is VERY DANGEROUS"
@@ -72,7 +77,9 @@ fi
 cloudflare_trusted_ipv4=$(curl -s https://www.cloudflare.com/ips-v4 | tr '\n' ',')
 cloudflare_trusted_ipv6=$(curl -s https://www.cloudflare.com/ips-v6 | tr '\n' ',')
 cloudflare_trusted_ips="$cloudflare_trusted_ipv4,$cloudflare_trusted_ipv6"
-cloudflare_trusted_ips=$(echo $cloudflare_trusted_ips | sed 's/,$//g' | sed 's/,,/,/g')
+cloudflare_trusted_ips=$(echo $cloudflare_trusted_ips | sed 's/,$//g' | sed 's/,,/,/g' | sed 's/\//\\\//g')
+
+hdci_folder_sed_compliant=$(echo $HDCI_FOLDER | sed 's/\//\\\//g')
 
 cat .env.example | \
 	sed "s/{{DOMAIN}}/$1/g" | \
@@ -81,11 +88,11 @@ cat .env.example | \
 	sed "s/{{CLOUDFLARE_API_KEY}}/$4/g" | \
 	sed "s/{{DRONE_GITHUB_CLIENT_ID}}/$5/g" | \
 	sed "s/{{DRONE_GITHUB_CLIENT_SECRET}}/$6/g" | \
-	sed "s/{{DRONE_RPC_SECRET}}/$(generate_secret)/g" | \
+	sed "s/{{DRONE_RPC_SECRET}}/$(generate_secret 32)/g" | \
 	sed "s/{{GITHUB_FILTERING}}/$7/g" | \
-	sed "s/{{DRONE_DATABASE_SECRET}}/$(generate_secret)/g" | \
-	sed "s/{{HDCI_FOLDER}}/$HDCI_FOLDER/g" | \
-	sed "s/{{CLOUDFLARE_TRUSTED_IPS}}/$cloudflare_trusted_ips/g" > .env
+	sed "s/{{DRONE_DATABASE_SECRET}}/$(generate_secret 32)/g" | \
+	sed "s/{{CLOUDFLARE_TRUSTED_IPS}}/$cloudflare_trusted_ips/g" | \
+	sed "s/{{HDCI_FOLDER}}/$hdci_folder_sed_compliant/g" > .env
 
 if should_generate_registry_secrets; then
 	generate_registry_secrets $1
