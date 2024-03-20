@@ -2,7 +2,7 @@ version: '3.3'
 
 services:
         hdci-traefik:
-                hostname: hdci-traefik
+                hostname: hdci.traefik
                 container_name: hdci-traefik
 
                 image: traefik:v2.2
@@ -10,7 +10,7 @@ services:
                 ports:
                         - 80:80
                         - 443:443
-                        - 8080:8080
+                        - 127.0.0.1:8080:8080
             
                 volumes:
                         - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -51,7 +51,7 @@ services:
                 depends_on:
                         - hdci-traefik
 
-                hostname: hdci-whoami-traefik
+                hostname: hdci.whoami-traefik
                 container_name: hdci-whoami-traefik
 
                 image: traefik/whoami
@@ -66,7 +66,7 @@ services:
                 depends_on:
                         - hdci-traefik
 
-                hostname: hdci-drone-server
+                hostname: hdci.drone-server
                 container_name: hdci-drone-server
 
                 image: drone/drone:2
@@ -103,7 +103,7 @@ services:
                         - "traefik.http.routers.drone.tls.certResolver=cloudflare"
 
         hdci-drone-runner-docker:
-                hostname: hdci-drone-runner-docker
+                hostname: hdci.drone-runner-docker
                 container_name: hdci-drone-runner-docker
 
                 depends_on:
@@ -125,7 +125,7 @@ services:
                         - hdci-traefik
 
                 image: registry:2
-                hostname: hdci-registry
+                hostname: hdci.registry
                 container_name: hdci-registry
                 restart: always
                 ports:
@@ -152,7 +152,7 @@ services:
                         - hdci-registry
 
                 image: index.docker.io/containrrr/watchtower:latest
-                hostname: hdci-watchtower
+                hostname: hdci.watchtower
                 container_name: hdci-watchtower
                 restart: always
                 volumes:
@@ -165,7 +165,7 @@ services:
 
         hdci-portainer:
                 image: portainer/portainer-ce:latest
-                hostname: hdci-portainer
+                hostname: hdci.portainer
                 container_name: hdci-portainer
                 restart: always
                 volumes:
