@@ -97,6 +97,18 @@ ufw allow 22
 ufw enable
 ```
 
+Note:
+For mac user 
+```
+export DISPLAY=0.0
+```
+
+If docker login is not possible, install these package
+```
+sudo apt install dbus-x11 gnupg2 pass
+```
+
+
 I will not cover how to setup a VPN here, but you can find a lot of tutorials on the internet.
 
 To then connect to your portainer UI you can use the following command:
