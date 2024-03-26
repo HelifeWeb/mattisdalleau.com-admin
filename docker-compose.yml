@@ -2,7 +2,7 @@ version: '3.3'
 
 services:
         hdci-traefik:
-                hostname: hdci-traefik
+                hostname: hdci.traefik
                 container_name: hdci-traefik
 
                 image: traefik:v2.2
@@ -10,7 +10,7 @@ services:
                 ports:
                         - 80:80
                         - 443:443
-                        - 8080:8080
+                        - 127.0.0.1:8080:8080
             
                 volumes:
                         - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -51,22 +51,22 @@ services:
                 depends_on:
                         - hdci-traefik
 
-                hostname: hdci-whoami-traefik
+                hostname: hdci.whoami-traefik
                 container_name: hdci-whoami-traefik
 
                 image: traefik/whoami
                 restart: always
                 labels:
                         - "traefik.enable=true"
-                        - "traefik.http.routers.whoami.rule=Host(`whoami.${HDCI_DOMAIN}`)"
-                        - "traefik.http.routers.whoami.entrypoints=web,websecure"
-                        - "traefik.http.routers.whoami.tls.certResolver=cloudflare"
+                        - "traefik.http.routers.hdci-whoami.rule=Host(`whoami.${HDCI_DOMAIN}`)"
+                        - "traefik.http.routers.hdci-whoami.entrypoints=web,websecure"
+                        - "traefik.http.routers.hdci-whoami.tls.certResolver=cloudflare"
 
         hdci-drone-server:
                 depends_on:
                         - hdci-traefik
 
-                hostname: hdci-drone-server
+                hostname: hdci.drone-server
                 container_name: hdci-drone-server
 
                 image: drone/drone:2
@@ -98,12 +98,12 @@ services:
 
                 labels:
                         - "traefik.enable=true"
-                        - "traefik.http.routers.drone.entrypoints=web,websecure"
-                        - "traefik.http.routers.drone.rule=Host(`drone.${HDCI_DOMAIN}`)"
-                        - "traefik.http.routers.drone.tls.certResolver=cloudflare"
+                        - "traefik.http.routers.hdci-drone.entrypoints=web,websecure"
+                        - "traefik.http.routers.hdci-drone.rule=Host(`drone.${HDCI_DOMAIN}`)"
+                        - "traefik.http.routers.hdci-drone.tls.certResolver=cloudflare"
 
         hdci-drone-runner-docker:
-                hostname: hdci-drone-runner-docker
+                hostname: hdci.drone-runner-docker
                 container_name: hdci-drone-runner-docker
 
                 depends_on:
@@ -125,7 +125,7 @@ services:
                         - hdci-traefik
 
                 image: registry:2
-                hostname: hdci-registry
+                hostname: hdci.registry
                 container_name: hdci-registry
                 restart: always
                 ports:
@@ -141,10 +141,10 @@ services:
                         - ${HDCI_FOLDER}/registry/:/registry
                 labels:
                         - "traefik.enable=true"
-                        - "traefik.http.routers.registry.entrypoints=web,websecure"
-                        - "traefik.http.routers.registry.rule=Host(`registry.${HDCI_DOMAIN}`)"
-                        - "traefik.http.routers.registry.tls.certResolver=cloudflare"
-                        - "traefik.http.services.registry.loadbalancer.server.port=5000"
+                        - "traefik.http.routers.hdci-registry.entrypoints=web,websecure"
+                        - "traefik.http.routers.hdci-registry.rule=Host(`registry.${HDCI_DOMAIN}`)"
+                        - "traefik.http.routers.hdci-registry.tls.certResolver=cloudflare"
+                        - "traefik.http.services.hdci-registry.loadbalancer.server.port=5000"
                         #- "traefik.http.middlewares.limit.bufferring.maxRequestBodyBytes=17179869184" # 16GB
 
         hdci-watchtower:
@@ -152,7 +152,7 @@ services:
                         - hdci-registry
 
                 image: index.docker.io/containrrr/watchtower:latest
-                hostname: hdci-watchtower
+                hostname: hdci.watchtower
                 container_name: hdci-watchtower
                 restart: always
                 volumes:
@@ -164,16 +164,36 @@ services:
                         DOCKER_CONFIG: /config
 
         hdci-portainer:
+                command: -H tcp://tasks.agent:9001 --tlsskipverify
                 image: portainer/portainer-ce:latest
-                hostname: hdci-portainer
+                hostname: hdci.portainer
                 container_name: hdci-portainer
                 restart: always
                 volumes:
                         - ${HDCI_FOLDER}/portainer/data:/data
                         - /var/run/docker.sock:/var/run/docker.sock
+                labels:
+                        - "traefik.enable=true"
+                        - "traefik.http.routers.hdci-portainer.entrypoints=web,websecure"
+                        - "traefik.http.routers.hdci-portainer.rule=Host(`portainer.${HDCI_DOMAIN}`)"
+                        - "traefik.http.routers.hdci-portnainer.tls.certResolver=cloudflare"
+                        - "traefik.http.services.hdci-portainer.loadbalancer.server.port=9000"
                 ports:
-                        - 127.0.0.1:9000:9000
+                        - 9000:9000
 
+        hdci-uptime-kuma:
+                image: louislam/uptime-kuma:1
+                hostname: hdci-uptime-kuma
+                container_name: hdci-uptime-kuma
+                restart: always
+                volumes:
+                        - ${HDCI_FOLDER}/uptime-kuma:/app/data
+                labels:
+                        - "traefik.enable=true"
+                        - "traefik.http.routers.hdci-uptime-kuma.entrypoints=web,websecure"
+                        - "traefik.http.routers.hdci-uptime-kuma.rule=Host(`uptime.${HDCI_DOMAIN}`)"
+                        - "traefik.http.routers.hdci-uptime-kuma.tls.certResolver=cloudflare"
+                        - "traefik.http.services.hdci-uptime-kuma.loadbalancer.server.port=3001"
 networks:
         hdci-network:
         default:
