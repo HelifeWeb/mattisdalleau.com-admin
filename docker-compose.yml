@@ -10,7 +10,7 @@ services:
                 ports:
                         - 80:80
                         - 443:443
-                        - 127.0.0.1:8080:8080
+                          #- 127.0.0.1:8080:8080
             
                 volumes:
                         - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -22,7 +22,7 @@ services:
                         - "--accessLog.filePath=/var/log/traefik/access.log"
 
                         - "--api.insecure=false"
-                        - "--api.dashboard=false"
+                        - "--api.dashboard=true"
 
                         - "--entrypoints.web.address=:80"
                         - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
@@ -45,6 +45,19 @@ services:
                 environment:
                         CF_API_EMAIL: ${CLOUDFLARE_API_EMAIL}
                         CF_API_KEY: ${CLOUDFLARE_API_KEY}
+
+                labels:
+                        - "traefik.enable=true"
+
+                        - "traefik.http.routers.hdci-traefik-dashboard.rule=Host(`traefik.${HDCI_DOMAIN}`)"
+                        - "traefik.http.routers.hdci-traefik-dashboard.entrypoints=websecure"
+                        - "traefik.http.routers.hdci-traefik-dashboard.service=api@internal"
+                        - "traefik.http.routers.hdci-traefik-dashboard.tls.certResolver=cloudflare"
+
+                        - "traefik.http.routers.hdci-traefik-dashboard.middlewares=hdci-traefik-dashboard-auth"
+                        # Must be changed good for now as a testing (nothing important is in the logs)
+                        - "traefik.http.middlewares.hdci-traefik-dashboard-auth.basicauth.users=aaa:$$2y$$05$$mdhjWHLFZhLhtpPAwJO42uzHhfFIkVWNnXXq1czH6B71ikytjYRDC"
+                        - "traefik.http.middlewares.hdci-traefik-dashboard-auth.basicauth.removeheader=true"
 
         # Testing purposes
         hdci-whoami-traefik:
@@ -177,7 +190,7 @@ services:
                         - "traefik.http.routers.hdci-portainer.entrypoints=web,websecure"
                         - "traefik.http.routers.hdci-portainer.rule=Host(`portainer.${HDCI_DOMAIN}`)"
                         - "traefik.http.routers.hdci-portnainer.tls.certResolver=cloudflare"
-                        - "traefik.http.services.hdci-portainer.loadbalancer.server.port=9000"
+                        - "traefik.http.services.hdci-portainer.loadbalancer.server.port=9001"
                 ports:
                         - 9000:9000
 
