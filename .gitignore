@@ -163,3 +163,5 @@ cython_debug/
 docker-registry
 traefik-data
 .history
+.traefik.users
+*acme*.json
