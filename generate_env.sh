@@ -48,7 +48,16 @@ generate_registry_secrets() {
 	}
 }
 EOF
-	
+
+	mkdir -p $HDCI_FOLDER/registry/auth/dr-cleaner
+	cat << EOF > $HDCI_FOLDER/registry/auth/dr-cleaner/config.json
+{
+    "REGISTRY_URL": "https://registry.$1",
+    "REGISTRY_AUTH": "$auth",
+    "REGISTRY_LIMIT": 10,
+    "REGISTRY_CLEANER_INTERVAL": 60
+}
+EOF
 }
 
 PASSWORD_LENGTH=64

@@ -147,6 +147,19 @@ services:
                         - "traefik.http.services.registry.loadbalancer.server.port=5000"
                         #- "traefik.http.middlewares.limit.bufferring.maxRequestBodyBytes=17179869184" # 16GB
 
+        hdci-dr-cleaner:
+                depends_on:
+                        - hdci-registry
+
+                image: pharops/dr-cleaner:latest
+                container_name: hdci-dr-cleaner
+                restart: on-failure
+                volumes:
+                        - ${HDCI_FOLDER}/registry/auth/dr-cleaner:/config
+                        - /etc/localtime:/etc/localtime:ro
+                environment:
+                        REGISTRY_CLEANER_CONFIG: /config/config.json
+
         hdci-watchtower:
                 depends_on:
                         - hdci-registry
