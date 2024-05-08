@@ -21,7 +21,7 @@ ask_yes_no() {
 }
 
 should_generate_registry_secrets() {
-	if [ -f $HDCI_FOLDER/registry/auth/.htpasswd ] || [ -f $HDCI_FOLDER/registry/auth/watchtower/config.json ]; then
+	if [ -f $HDCI_FOLDER/registry-auth/.htpasswd ] || [ -f $HDCI_FOLDER/registry-auth/watchtower/config.json ]; then
 		ask_yes_no "Registry secrets already exist. (maybe partially) Do you want to generate them again?"
 		return $?
 	fi
@@ -29,14 +29,14 @@ should_generate_registry_secrets() {
 }
 
 generate_registry_secrets() {
-	rm -rf $HDCI_FOLDER/registry/auth
-	mkdir -p $HDCI_FOLDER/registry/auth/watchtower
+	rm -rf $HDCI_FOLDER/registry-auth
+	mkdir -p $HDCI_FOLDER/registry-auth/watchtower
 	user=$(generate_secret)
 	pass=$(generate_secret)
-	htpasswd -Bbc $HDCI_FOLDER/registry/auth/.htpasswd $user $pass
+	htpasswd -Bbc $HDCI_FOLDER/registry-auth/.htpasswd $user $pass
 	auth=$(echo "$user:$pass" | base64 -w 0)
 
-	cat << EOF > $HDCI_FOLDER/registry/auth/watchtower/config.json
+	cat << EOF > $HDCI_FOLDER/registry-auth/watchtower/config.json
 {
 	"auths": {
 		"localhost:5000": {
@@ -46,16 +46,6 @@ generate_registry_secrets() {
 			"auth": "$auth"
 		}
 	}
-}
-EOF
-
-	mkdir -p $HDCI_FOLDER/registry/auth/dr-cleaner
-	cat << EOF > $HDCI_FOLDER/registry/auth/dr-cleaner/config.json
-{
-    "REGISTRY_URL": "https://registry.$1",
-    "REGISTRY_AUTH": "$auth",
-    "REGISTRY_LIMIT": 10,
-    "REGISTRY_CLEANER_INTERVAL": 60
 }
 EOF
 }
