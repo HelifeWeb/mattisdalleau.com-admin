@@ -22,7 +22,7 @@ services:
                         - "--accessLog.filePath=/var/log/traefik/access.log"
 
                         - "--api.insecure=false"
-                        - "--api.dashboard=true"
+                        - "--api.dashboard=false" #true (For now i will avoid access to the traefik as it is not considered secure)
 
                         - "--entrypoints.web.address=:80"
                         - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
@@ -56,7 +56,7 @@ services:
 
                         - "traefik.http.routers.hdci-traefik-dashboard.middlewares=hdci-traefik-dashboard-auth"
                         # Must be changed good for now as a testing (nothing important is in the logs)
-                        - "traefik.http.middlewares.hdci-traefik-dashboard-auth.basicauth.users=aaa:$$2y$$05$$mdhjWHLFZhLhtpPAwJO42uzHhfFIkVWNnXXq1czH6B71ikytjYRDC"
+                        - "traefik.http.middlewares.hdci-traefik-dashboard-auth.basicauth.users=aaa:$$2y$$05$$mdhjWHLFZhLhtpPAwJO42uzHhfFIkVWNnXXq1czH6B71ikytjYRDC" #aaa:aaa
                         - "traefik.http.middlewares.hdci-traefik-dashboard-auth.basicauth.removeheader=true"
 
         # Testing purposes
@@ -152,6 +152,7 @@ services:
 
                 volumes:
                         - ${HDCI_FOLDER}/registry/:/registry
+                        #- /ext-disk/d0/registry/:/registry
                 labels:
                         - "traefik.enable=true"
                         - "traefik.http.routers.hdci-registry.entrypoints=web,websecure"
@@ -170,7 +171,7 @@ services:
                 restart: always
                 volumes:
                         - /var/run/docker.sock:/var/run/docker.sock
-                        - ${HDCI_FOLDER}/registry/auth/watchtower:/config
+                        - ${HDCI_FOLDER}/registry-auth/watchtower:/config
                         - /etc/localtime:/etc/localtime:ro
                 command: --interval ${WATCHTOWER_INTERVAL} --cleanup
                 environment:
@@ -204,7 +205,7 @@ services:
                 labels:
                         - "traefik.enable=true"
                         - "traefik.http.routers.hdci-uptime-kuma.entrypoints=web,websecure"
-                        - "traefik.http.routers.hdci-uptime-kuma.rule=Host(`uptime.${HDCI_DOMAIN}`)"
+                        - "traefik.http.routers.hdci-uptime-kuma.rule=Host(`uptime.${HDCI_DOMAIN}`) || Host(`status.${HDCI_DOMAIN}`)"
                         - "traefik.http.routers.hdci-uptime-kuma.tls.certResolver=cloudflare"
                         - "traefik.http.services.hdci-uptime-kuma.loadbalancer.server.port=3001"
 networks:
