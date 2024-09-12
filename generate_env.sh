@@ -21,7 +21,7 @@ ask_yes_no() {
 }
 
 should_generate_registry_secrets() {
-	if [ -f $HDCI_FOLDER/registry-auth/.htpasswd ] || [ -f $HDCI_FOLDER/registry-auth/watchtower/config.json ]; then
+	if [ -f $HDCI_FOLDER_REGISTRY_AUTH/.htpasswd ] || [ -f $HDCI_FOLDER_REGISTRY_AUTH/watchtower/config.json ]; then
 		ask_yes_no "Registry secrets already exist. (maybe partially) Do you want to generate them again?"
 		return $?
 	fi
@@ -29,14 +29,14 @@ should_generate_registry_secrets() {
 }
 
 generate_registry_secrets() {
-	rm -rf $HDCI_FOLDER/registry-auth
-	mkdir -p $HDCI_FOLDER/registry-auth/watchtower
+	rm -rf $HDCI_FOLDER_REGISTRY_AUTH
+	mkdir -p $HDCI_FOLDER_REGISTRY_AUTH/watchtower
 	user=$(generate_secret)
 	pass=$(generate_secret)
-	htpasswd -Bbc $HDCI_FOLDER/registry-auth/.htpasswd $user $pass
+	htpasswd -Bbc $HDCI_FOLDER_REGISTRY_AUTH/.htpasswd "$user" "$pass"
 	auth=$(echo "$user:$pass" | base64 -w 0)
 
-	cat << EOF > $HDCI_FOLDER/registry-auth/watchtower/config.json
+	cat << EOF > $HDCI_FOLDER_REGISTRY_AUTH/watchtower/config.json
 {
 	"auths": {
 		"localhost:5000": {
@@ -65,6 +65,8 @@ if [ -z ${HDCI_FOLDER} ]; then
 	echo "Using default value: /var/lib/hdci"
 	HDCI_FOLDER=/var/lib/hdci
 fi
+
+HDCI_FOLDER_REGISTRY_AUTH="$HDCI_FOLDER/registry/auth"
 
 if [ $# -ne 7 ]; then
 	echo "$0 <DOMAIN_NAME> <GITHUB_USER> <CLOUDFLARE_API_EMAIL> <CLOUDFLARE_API_KEY> <DRONE_GITHUB_CLIENT_ID> <DRONE_GITHUB_CLIENT_SECRET> <GITHUB_FILTERING>"
