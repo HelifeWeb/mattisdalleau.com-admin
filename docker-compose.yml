@@ -142,7 +142,7 @@ services:
                 container_name: hdci-registry
                 restart: always
                 ports:
-                        - 5000:5000
+                        - 127.0.0.1:5000:5000
                 environment:
                         REGISTRY_AUTH: htpasswd
                         REGISTRY_AUTH_HTPASSWD_REALM: Registry
@@ -152,7 +152,6 @@ services:
 
                 volumes:
                         - ${HDCI_FOLDER}/registry/:/registry
-                        #- /ext-disk/d0/registry/:/registry
                 labels:
                         - "traefik.enable=true"
                         - "traefik.http.routers.hdci-registry.entrypoints=web,websecure"
@@ -171,7 +170,7 @@ services:
                 restart: always
                 volumes:
                         - /var/run/docker.sock:/var/run/docker.sock
-                        - ${HDCI_FOLDER}/registry-auth/watchtower:/config
+                        - ${HDCI_FOLDER}/registry/auth/watchtower:/config
                         - /etc/localtime:/etc/localtime:ro
                 command: --interval ${WATCHTOWER_INTERVAL} --cleanup
                 environment:
@@ -187,13 +186,9 @@ services:
                         - ${HDCI_FOLDER}/portainer/data:/data
                         - /var/run/docker.sock:/var/run/docker.sock
                 labels:
-                        - "traefik.enable=true"
-                        - "traefik.http.routers.hdci-portainer.entrypoints=web,websecure"
-                        - "traefik.http.routers.hdci-portainer.rule=Host(`portainer.${HDCI_DOMAIN}`)"
-                        - "traefik.http.routers.hdci-portnainer.tls.certResolver=cloudflare"
-                        - "traefik.http.services.hdci-portainer.loadbalancer.server.port=9001"
+                        - "traefik.enable=false"
                 ports:
-                        - 9000:9000
+                        - 127.0.0.1:9000:9000
 
         hdci-uptime-kuma:
                 image: louislam/uptime-kuma:1
