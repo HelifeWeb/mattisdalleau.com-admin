@@ -20,37 +20,7 @@ ask_yes_no() {
 	done
 }
 
-should_generate_registry_secrets() {
-	if [ -f $HDCI_FOLDER_REGISTRY_AUTH/.htpasswd ] || [ -f $HDCI_FOLDER_REGISTRY_AUTH/watchtower/config.json ]; then
-		ask_yes_no "Registry secrets already exist. (maybe partially) Do you want to generate them again?"
-		return $?
-	fi
-	return 0
-}
-
-generate_registry_secrets() {
-	rm -rf $HDCI_FOLDER_REGISTRY_AUTH
-	mkdir -p $HDCI_FOLDER_REGISTRY_AUTH/watchtower
-	user=$(generate_secret)
-	pass=$(generate_secret)
-	htpasswd -Bbc $HDCI_FOLDER_REGISTRY_AUTH/.htpasswd "$user" "$pass"
-	auth=$(echo "$user:$pass" | base64 -w 0)
-
-	cat << EOF > $HDCI_FOLDER_REGISTRY_AUTH/watchtower/config.json
-{
-	"auths": {
-		"localhost:5000": {
-			"auth": "$auth"
-		},
-		"registry.$1": {
-			"auth": "$auth"
-		}
-	}
-}
-EOF
-}
-
-PASSWORD_LENGTH=64
+PASSWORD_LENGTH=256
 
 generate_secret() {
 	current=$PASSWORD_LENGTH
@@ -60,13 +30,31 @@ generate_secret() {
 	openssl rand -hex $current
 }
 
+should_generate_secrets() {
+	if [ -f "$1/.htpasswd" ]; then
+		ask_yes_no "Secrets for '$1' already exist. Do you want to generate them again?"
+		return $?
+	fi
+	return 0
+}
+
+generate_secrets() {
+	user="$(generate_secret)"
+	pass="$(generate_secret)"
+	rm -rf "$1"
+	mkdir -p "$1"
+	htpasswd -Bbc "$1/.htpasswd" "$user" "$pass"
+	echo "$(echo $user:$pass | base64)" > "$1/.non-encrypted.b64"
+}
+
 if [ -z ${HDCI_FOLDER} ]; then
 	echo "HDCI_FOLDER is not set"
-	echo "Using default value: /var/lib/hdci"
-	HDCI_FOLDER=/var/lib/hdci
+	echo "Using default value: ./data/hdci"
+	HDCI_FOLDER=./data/hdci
 fi
 
-HDCI_FOLDER_REGISTRY_AUTH="$HDCI_FOLDER/registry/auth"
+HDCI_FOLDER_REGISTRY_AUTH="$HDCI_FOLDER/auth/registry"
+HDCI_FOLDER_PORTAINER_AUTH="$HDCI_FOLDER/auth/portainer"
 
 if [ $# -ne 7 ]; then
 	echo "$0 <DOMAIN_NAME> <GITHUB_USER> <CLOUDFLARE_API_EMAIL> <CLOUDFLARE_API_KEY> <DRONE_GITHUB_CLIENT_ID> <DRONE_GITHUB_CLIENT_SECRET> <GITHUB_FILTERING>"
@@ -95,8 +83,14 @@ cat .env.example | \
 	sed "s/{{CLOUDFLARE_TRUSTED_IPS}}/$cloudflare_trusted_ips/g" | \
 	sed "s/{{HDCI_FOLDER}}/$hdci_folder_sed_compliant/g" > .env
 
-if should_generate_registry_secrets; then
-	generate_registry_secrets $1
+if should_generate_secrets "$HDCI_FOLDER_REGISTRY_AUTH"; then
+	generate_secrets "$HDCI_FOLDER_REGISTRY_AUTH"
 else
-	echo "Skipping registry secrets generation"
+	echo "Skipping registry secrets generation for registry"
+fi
+
+if should_generate_secrets "$HDCI_FOLDER_PORTAINER_AUTH"; then
+	generate_secrets "$HDCI_FOLDER_REGISTRY_AUTH"
+else
+	echo "Skipping registry secrets generation for portainer"
 fi
