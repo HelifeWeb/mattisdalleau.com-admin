@@ -246,7 +246,7 @@ flowchart TD
             Worker1Service1[[Worker WEB UI Replica 1]]
             Worker1Service2[[Worker API Replica 1]]
             DatabaseService1[(SQL Replica1)]
-            DatabaseService3[(Postgres Replica 1)]
+            DatabaseService2[(Postgres Replica 1)]
             BackupService1[[Backup Service]]
 
             Worker1DockerSocket <--> DockerSwarmService
@@ -280,7 +280,7 @@ flowchart TD
             Worker2Service2[[Worker API Replica 2]]
             Worker2Service3[[Worker API Replica 3]]
             DatabaseService2[(SQL Replica2)]
-            DatabaseService4[(Postgres Replica 1)]
+            DatabaseService4[(Postgres Replica 2)]
             BackupService2[[Backup Service]]
 
             Worker2Service1 <--> TraefikNetwork
