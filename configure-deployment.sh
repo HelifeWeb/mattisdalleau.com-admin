@@ -105,7 +105,7 @@ cat .env.example | \
 	sed "s/{{HDCI_FOLDER}}/$hdci_folder_sed_compliant/g" > .env
 
 sed -i "s/{{CLOUDFLARE_TRUSTED_IPS}}/$(get_cloudflare_trusted_ips)/g" \
-	"$HDCI_FOLDER/static-configurations/traefik/traefik-conf.yml"
+	"$HDCI_FOLDER/static-configurations/traefik/conf.yaml"
 
 private_auth=("registry")
 rev_proxy_auth=("portainer")
