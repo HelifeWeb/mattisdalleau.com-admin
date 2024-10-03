@@ -150,8 +150,7 @@ graph TD;
     subgraph HostVM
         direction TB;
 
-        HostVMDockerSocket
-        DockerSwarmService
+        HostVMDockerSocket <--> DockerSwarmService
 
         TraefikNetwork<-->DroneServer
         TraefikNetwork<--> HostVMDockerSocket 
