@@ -212,26 +212,27 @@ flowchart TD
             Portainer[[Portainer]]
             Registry[[Registry *]]
 
-            Traefik <--> ManagerDockerSocket
             Traefik <--> TraefikNetwork
 
             TraefikNetwork<-->DroneServer
-            TraefikNetwork<--> ManagerDockerSocket 
 
             TraefikNetwork<-->DroneServer
 
             DroneServer<-->DroneServerRunner
-            DroneServerRunner<-->ManagerDockerSocket
 
             TraefikNetwork<-->Registry
 
             TraefikNetwork<-->Portainer
 
-            Portainer <--> ManagerDockerSocket
         end
 
         ManagerDockerSocket <--> ManagerDockerSpace
         ManagerDockerSocket <--> DockerSwarmService
+
+        Traefik <--> ManagerDockerSocket
+        TraefikNetwork<--> ManagerDockerSocket
+        DroneServerRunner<-->ManagerDockerSocket
+        Portainer <--> ManagerDockerSocket
 
         DistantDataManager[(Distant Data Service Link)]
 
