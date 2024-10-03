@@ -86,10 +86,9 @@ You can test in order:
 - whoami
 - drone
 
-Then you can connect in ssh to your machine to forward the port 9000 to your local machine to connect to the portainer UI. (Or you can setup a VPN using openvpn to connect to your server).
-I would highly discourage you to expose the portainer UI to the internet in any way.
+Make also sure that your portainer service is not exposed wihtout auth
 
-Make also sure that your portainer service is not exposed to the internet otherwise you may need to add asap a firewall to your server.
+Then if you do not care to turn off the other ports of your machine it would be a good idea to only allow `80 443 22` ports
 
 ```bash
 # if you use ufw you can use this script to allow only 80/443/22 and disallow everything else
@@ -101,25 +100,18 @@ ufw enable
 ```
 
 Note:
-For mac users
-
-```bash
-export DISPLAY=0.0
-```
-
 If docker login is not possible, install these package
 
 ```bash
 sudo apt install dbus-x11 gnupg2 pass
 ```
 
-I will not cover how to setup a VPN here, but you can find a lot of tutorials on the internet.
-
-To then connect to your portainer UI you can use the following command:
-
+For mac users because mac does weird things in SSH?? It somehow needs x11 forwarding for docker login as you can see above so DISPLAY forwarding is required
 ```bash
-ssh -L 9000:localhost:9000 <your-user>@<your-server-ip>
+export DISPLAY=0.0
 ```
+
+For easy to deploy VPNs [openvpn](https://github.com/angristan/openvpn-install)
 
 ## Recommended environment example
 
