@@ -129,7 +129,7 @@ The HOST VM for the `portainer, traefik, registry, drone-ci`. It deploys all the
 
 The DatabaseVMs handling databases backups and storage and is connected to the DatabaseNetwork through the swarm.
 
-The Worker VM which is connected to the WorkerNetwork to make workers be able to talk to each other... Thoses are not supposed to use static data and focus solely on quering the databases for processing and storing info.
+The Worker VM... Thoses containers are not supposed to use static data and focus solely on quering the databases for processing and storing info.
 
 Of course more networks may be used to manage better information
 
@@ -140,30 +140,30 @@ Portainer should handle how the deployments are being processed.
 This graph implicitly consider that all containers are lied to their local docker socket but for graph simplicity only shows containers that actually use the docker socket for docker commands
 
 ```mermaid
-flowchart LR
-
-    subgraph Cloud
-        DifferentVM
-        GoogleCloud
-        AWS
-        Other..
-    end
+flowchart RL
 
     subgraph DNSResolver
+        direction LR;
         Cloudflare
-        Other..
+        ...
+    end
+
+    subgraph Cloud
+        direction LR;
+        SSH
+        GoogleCloud
+        AWS
+        ..
     end
 
     subgraph ControllerVM
         direction TB;
 
-        DockerSwarmService((Docker Swarm service))
-
+        DockerSwarmService((Docker Swarm Service))
 
         subgraph SwarmNetwork
             DatabaseNetwork{Database Network}
             TraefikNetwork{Traefik Network}
-            WorkerNetwork{Worker Network}
         end
 
         DockerSwarmService <--> SwarmNetwork
@@ -178,7 +178,6 @@ flowchart LR
         HostVMDockerSocket <--> DockerSwarmService
 
         Traefik <--> HostVMDockerSocket
-        Traefik <--> DNSResolver
         Traefik <--> TraefikNetwork
 
         TraefikNetwork<-->DroneServer
@@ -197,7 +196,7 @@ flowchart LR
     end
 
     subgraph DatabaseVM
-        direction TB;
+        direction LR;
 
         DatabaseVMSocketDocker{{Docker Socket}}
         DatabaseService1Container[(Database Container)]
@@ -212,13 +211,11 @@ flowchart LR
         DatabaseService3Container <--> DatabaseNetwork
         DatabaseService4Container <--> DatabaseNetwork
 
-        BackupService <--> Cloud
-
         BackupService <--> DatabaseNetwork
     end
 
     subgraph ExampleWorkerVM1
-        direction TB;
+        direction LR;
 
         Worker1DockerSocket{{Docker Socket}}
         Worker1Service1[[Worker WEB UI Replica 1]]
@@ -227,43 +224,46 @@ flowchart LR
         Worker1DockerSocket <--> DockerSwarmService
 
         Worker1Service1 <--> TraefikNetwork
-        Worker1Service1 <--> WorkerNetwork
         Worker1Service1 <--> DatabaseNetwork
 
         Worker1Service2 <--> TraefikNetwork
-        Worker1Service2 <--> WorkerNetwork
         Worker1Service2 <--> DatabaseNetwork
     end
 
     subgraph ExampleWorkerVM2
-        direction TB;
+        direction LR;
 
         Worker2DockerSocket{{Docker Socket}}
         Worker2Service1[[Worker WEB UI Replica 2]]
         Worker2Service2[[Worker API Replica 2]]
-
+        Worker2Service3[[Worker API Replica 3]]
 
         Worker2DockerSocket <--> DockerSwarmService
 
         Worker2Service1 <--> TraefikNetwork
-        Worker2Service1 <--> WorkerNetwork
         Worker2Service1 <--> DatabaseNetwork
 
         Worker2Service2 <--> TraefikNetwork
-        Worker2Service2 <--> WorkerNetwork
         Worker2Service2 <--> DatabaseNetwork
 
         Worker2Service3 <--> DatabaseNetwork
         Worker2Service3 <--> TraefikNetwork
-        Worker2Service3 <--> WorkerNetwork
     end
 
     subgraph Clients
         direction TB;
-
-        DistantClient <--> DNSResolver
-        DistantClient2 <--> DNSResolver
-        DistantClient3 <--> DNSResolver
-        DistantClient4 <--> DNSResolver
+        DistantClient1
+        DistantClient2
+        DistantClient3
+        DistantClient4
     end
+
+    Traefik <--> DNSResolver
+
+    BackupService <--> Cloud
+
+    DistantClient1 <--> DNSResolver
+    DistantClient2 <--> DNSResolver
+    DistantClient3 <--> DNSResolver
+    DistantClient4 <--> DNSResolver
 ```
