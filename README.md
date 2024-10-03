@@ -194,6 +194,8 @@ flowchart TD
 
     subgraph ManagerVM 
 
+        ManagerDockerSocket{{Docker Socket}}
+
         subgraph ManagerDockerSpace
             DockerSwarmService((Docker Swarm Service))
 
@@ -204,14 +206,11 @@ flowchart TD
 
             DockerSwarmService <--> SwarmNetwork
 
-            ManagerDockerSocket{{Docker Socket}}
             Traefik[[Traefik]]
             DroneServer[[Drone Server]]
             DroneServerRunner[[Drone Server Runner *]]
             Portainer[[Portainer]]
             Registry[[Registry *]]
-
-            ManagerDockerSocket <--> DockerSwarmService
 
             Traefik <--> ManagerDockerSocket
             Traefik <--> TraefikNetwork
@@ -231,6 +230,9 @@ flowchart TD
             Portainer <--> ManagerDockerSocket
         end
 
+        ManagerDockerSocket <--> ManagerDockerSpace
+        ManagerDockerSocket <--> DockerSwarmService
+
         DistantDataManager[(Distant Data Service Link)]
 
         Traefik <--> DistantDataManager
@@ -240,16 +242,15 @@ flowchart TD
 
     end
 
-    subgraph ExampleWorkerVM1
+    subgraph WorkerVM1
 
-        subgraph ExampleWorkerVM1DockerSpace
+        subgraph WorkerVM1DockerSpace
             Worker1Service1[[Worker WEB UI Replica 1]]
             Worker1Service2[[Worker API Replica 1]]
             DatabaseService1[(SQL Replica1)]
             DatabaseService2[(Postgres Replica 1)]
             BackupService1[[Backup Service]]
 
-            Worker1DockerSocket <--> DockerSwarmService
 
             Worker1Service1 <--> TraefikNetwork
             Worker1Service1 <--> DatabaseNetwork
@@ -263,6 +264,10 @@ flowchart TD
             BackupService1 <--> DatabaseNetwork
         end
 
+        Worker1DockerSocket{{Docker Socket}}
+        Worker1DockerSocket <--> WorkerVM1DockerSpace
+        Worker1DockerSocket <--> DockerSwarmService
+
         DistantDataWorker1[(NFS Service Link?)]
 
         DatabaseService1 <--> DistantDataWorker1
@@ -270,12 +275,12 @@ flowchart TD
         BackupService1 <--> DistantDataWorker1
     end
 
-    subgraph ExampleWorkerVM2
+    subgraph WorkerVM2
         direction LR;
 
         DistantDataWorker2[(NFS Service Link)]
 
-        subgraph ExampleWorkerVM2DockerSpace
+        subgraph WorkerVM2DockerSpace
             Worker2Service1[[Worker WEB UI Replica 2]]
             Worker2Service2[[Worker API Replica 2]]
             Worker2Service3[[Worker API Replica 3]]
@@ -298,12 +303,15 @@ flowchart TD
             DatabaseService4 <--> DatabaseNetwork
         end
 
+        Worker2DockerSocket{{Docker Socket}}
+        Worker2DockerSocket <--> WorkerVM2DockerSpace
+        Worker2DockerSocket <--> DockerSwarmService
+
         DatabaseService3 <--> DistantDataWorker2
         DatabaseService4 <--> DistantDataWorker2
         BackupService2 <--> DistantDataWorker2
 
     end
-
 
     subgraph DistantClients
         DistantClient1
