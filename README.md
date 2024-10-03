@@ -115,3 +115,111 @@ To then connect to your portainer UI you can use the following command:
 ```bash
 ssh -L 9000:localhost:9000 <your-user>@<your-server-ip>
 ```
+
+## Recommended environment example
+
+This environment takes into account that you won't use NFS share for the database and that the VM's are supposedly close to each other for low latency.
+
+The HOST VM for the `portainer, traefik, registry, drone-ci`. It deploys all the service on the local docker but are part of the docker `traefik network`.
+
+The DatabaseVMs handling databases backups and storage and is connected to the DatabaseNetwork through the swarm.
+
+The Worker VM which is connected to the WorkerNetwork to make workers be able to talk to each other... Thoses are not supposed to use static data and focus solely on quering the databases for processing and storing info.
+
+Of course more networks may be used to manage better information
+
+DroneCI should build image and push it to the registry.
+
+Portainer should handle how the deployments are being processed.
+
+```mermaid
+graph TD;
+
+    subgraph SwarmNetwork
+        DatabaseNetwork
+        TraefikNetwork
+        WorkerNetwork
+    end
+
+    subgraph Cloud
+        DifferentVM
+        GoogleCloud
+        AWS
+    end
+
+    subgraph HostVM
+        direction TB;
+
+        HostVMDockerSocket
+        DockerSwarmService
+
+        Traefik<-->DroneServer
+        Traefik<--> HostVMDockerSocket 
+
+        TraefikNetwork<-->DroneServer
+
+        DroneServer<-->DroneServerRunner
+        DroneServerRunner<-->HostVMDockerSocket
+
+        Traefik<-->Registry
+        TraefikNetwork<-->Registry
+
+        Traefik<-->Portainer
+        TraefikNetwork<-->Portainer
+
+        Portainer <--> HostVMDockerSocket
+    end
+
+    subgraph DatabaseVM
+        direction TB;
+
+        DatabaseVMSocketDocker <--> DockerSwarmService
+
+        DatabaseService1Container <--> DatabaseVMSocketDocker
+        DatabaseService1Container <--> DatabaseNetwork
+
+        DatabaseService2Container <--> DatabaseVMSocketDocker
+        DatabaseService2Container <--> DatabaseNetwork
+
+        DatabseService3And4Container <--> DatabaseVMSocketDocker
+        DatabseService3And4Container <--> DatabaseNetwork
+
+        BackupService <--> Cloud
+
+        BackupService <--> DatabaseService1Container
+        BackupService <--> DatabaseService2Container
+        BackupService <--> DatabseService3And4Container 
+    end
+
+    subgraph ExampleWorkerVM1
+        Worker1DockerSocket <--> DockerSwarmService
+
+        Worker1Service <--> Traefik
+        Worker1Service <--> WorkerNetwork
+        Worker1Service2 <--> Traefik
+        Worker1Service2 <--> WorkerNetwork
+
+        Worker1Service3RequiresDB1 <--> DatabaseNetwork
+        Worker1Service3RequireDB1 <--> Traefik
+    end
+
+    subgraph ExampleWorkerVM2
+        Worker2DockerSocket <--> DockerSwarmService
+
+        Worker2Service <--> Traefik
+        Worker2Service <--> WorkerNetwork
+
+        Worker2Service2 <--> Worker2Serivce
+        Worker2Service2 <--> Worker1Service2
+        Worker2Service2 <--> WorkerNetwork
+
+    end
+
+
+    subgraph Clients
+        DistantClient <--> Traefik
+        DistantClient2 <--> Traefik
+        DistantClient3 <--> Traefik
+        DistantClient4 <--> Traefik
+    end
+```
