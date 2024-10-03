@@ -152,6 +152,8 @@ graph TD;
 
         HostVMDockerSocket <--> DockerSwarmService
 
+        Traefik <--> TraefikNetwork
+
         TraefikNetwork<-->DroneServer
         TraefikNetwork<--> HostVMDockerSocket 
 
