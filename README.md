@@ -153,18 +153,16 @@ graph TD;
         HostVMDockerSocket
         DockerSwarmService
 
-        Traefik<-->DroneServer
-        Traefik<--> HostVMDockerSocket 
+        TraefikNetwork<-->DroneServer
+        TraefikNetwork<--> HostVMDockerSocket 
 
         TraefikNetwork<-->DroneServer
 
         DroneServer<-->DroneServerRunner
         DroneServerRunner<-->HostVMDockerSocket
 
-        Traefik<-->Registry
         TraefikNetwork<-->Registry
 
-        Traefik<-->Portainer
         TraefikNetwork<-->Portainer
 
         Portainer <--> HostVMDockerSocket
@@ -194,19 +192,19 @@ graph TD;
     subgraph ExampleWorkerVM1
         Worker1DockerSocket <--> DockerSwarmService
 
-        Worker1Service <--> Traefik
+        Worker1Service <--> TraefikNetwork
         Worker1Service <--> WorkerNetwork
-        Worker1Service2 <--> Traefik
+        Worker1Service2 <--> TraefikNetwork
         Worker1Service2 <--> WorkerNetwork
 
         Worker1Service3RequiresDB1 <--> DatabaseNetwork
-        Worker1Service3RequireDB1 <--> Traefik
+        Worker1Service3RequireDB1 <--> TraefikNetwork
     end
 
     subgraph ExampleWorkerVM2
         Worker2DockerSocket <--> DockerSwarmService
 
-        Worker2Service <--> Traefik
+        Worker2Service <--> TraefikNetwork
         Worker2Service <--> WorkerNetwork
 
         Worker2Service2 <--> Worker2Serivce
