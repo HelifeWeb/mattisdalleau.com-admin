@@ -27,6 +27,7 @@ providers:
     endpoint: unix:///var/run/docker.sock
     exposedByDefault: false
     watch: true
+    swarmMode: true
 
 certificatesresolvers:
   cloudflare:

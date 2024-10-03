@@ -10,8 +10,13 @@ Deployment of traefik, portainer, docker-registry and Drone-CI.
 - A github account
 - Docker and docker-compose installed on your server
 - git
+- At least 2VMs (Recommended 3VMs for fault tolerance)
 
-For now it will not generate the DNS records for you, but it will create the certificates.
+### Optional but recommended
+
+- NFS share (Or another kind of File sharing service)
+
+I will make the assumption that you will use a NFS share to synchronize the data.
 
 ## What it deploys
 
@@ -56,10 +61,16 @@ Please then store your client ID and client secret in a safe place, you will nee
 
 ### 4. Generate the env file for the deployment
 
-You can use the `generate_env.sh` script to generate the `.env` file for drone.
+You can use the `configure-deployment.sh` script to generate the `.env` and `docker-data` folder.
 
 ```bash
-./generate_env.sh # To see all required parameters
+./configure-deployment.sh # To see all required parameters
+```
+
+If you want to use multiple managers you can point the folder to a shared NFS folder.
+
+```bash
+HDCI_FOLDER=path/to/nfs ./configure-deployment.sh
 ```
 
 ### 5. Make sure your DNS records are set up correctly
@@ -71,65 +82,68 @@ A record: <your-domain> -> <your-server-ip>
 CNAME record: drone.<your-domain> -> <your-domain>
 CNAME record: registry.<your-domain> -> <your-domain>
 CNAME record: whoami.<your-domain> -> <your-domain>
+CNAME record: portainer.<your-domain> -> <your-domain>
 ```
 
 ### 6. Deploy the stack
 
-```bash
-docker-compose up -d
-```
-
-### 7. Test the deployment by connecting
-
-You can test in order:
-
-- whoami
-- drone
-
-Then you can connect in ssh to your machine to forward the port 9000 to your local machine to connect to the portainer UI. (Or you can setup a VPN using openvpn to connect to your server).
-I would highly discourage you to expose the portainer UI to the internet in any way.
-
-Make also sure that your portainer service is not exposed to the internet otherwise you may need to add asap a firewall to your server.
+#### On the first manager node
 
 ```bash
-# if you use ufw you can use this script to allow only 80/443/22 and disallow everything else
-for i in $(ufw status numbered | grep -oP '^\[\d+\].*?(?=\s+\[)|^\[\d+\].*'); do ufw delete $i; done
-ufw allow 80
-ufw allow 443
-ufw allow 22
-ufw enable
+docker swarm init
+docker stack deploy -c docker-compose.yml hdci
+docker node update --label-add hdci-storage-sync=true "your-manager-node"
+
+# Now login into the registry
+docker login registry.<your-domain>
+docker node update --label-add hdci-registry-auth=true "your-manager-node"
 ```
 
-Note:
-For mac users
+You can check your manager node with the following command:
 
 ```bash
-export DISPLAY=0.0
+docker node ls
 ```
 
-If docker login is not possible, install these package
+##### If you have multiple managers (Optional)
+
+This assumes that you configured the deployment or moved the `docker-data` folder to a shared NFS folder.
 
 ```bash
-sudo apt install dbus-x11 gnupg2 pass
+docker swarm join --token <your-token> <your-manager-ip>:2377
+docker stack deploy -c docker-compose.yml hdci
+docker node update --label-add hdci-storage-sync=true "your-manager-node"
+docker node update --role manager "your-manager-node"
+docker login registry.<your-domain>
+docker node update --label-add hdci-registry-auth=true "your-manager-node"
 ```
 
-I will not cover how to setup a VPN here, but you can find a lot of tutorials on the internet.
-
-To then connect to your portainer UI you can use the following command:
+#### On the worker nodes
 
 ```bash
-ssh -L 9000:localhost:9000 <your-user>@<your-server-ip>
+docker swarm join --token <your-token> <your-manager-ip>:2377
+
+# If you connected the NFS shared folder
+docker node update --label-add hdci-storage-sync=true "your-worker-node"
+
+# If you want to use the registry (required if you want the drone runner available there)
+docker login registry.<your-domain>
+docker node update --label-add hdci-registry-auth=true "your-worker-node"
 ```
+
+If databases are required make sure to constraint your nodes to the nodes that have a specific label for shared data and to mount your volumes correctly!
+
+If you do not have NFS shared folder, just make sure to have a single node with your own specific label for database nodes!!!
+
+Because of mount propagation, the database nodes should be ensured to be constrained to valid nodes to ensure synchronization.
 
 ## Recommended environment example
 
-This environment takes into account that you won't use NFS share for the database and that the VM's are supposedly close to each other for low latency.
-
-The HOST VM for the `portainer, traefik, registry, drone-ci`. It deploys all the service on the local docker but are part of the docker `traefik network`.
-
-The DatabaseVMs handling databases backups and storage and is connected to the DatabaseNetwork through the swarm.
+The HOST VM for the `portainer, traefik, registry, drone-ci`. It deploys all the service on manager that can synchronize data and are part of `traefik_network`.
 
 The Worker VM... Thoses containers are not supposed to use static data and focus solely on quering the databases for processing and storing info.
+
+They could if their node have the label of sync data that you provided but it is not recommended and should use Databses services...
 
 Of course more networks may be used to manage better information
 
@@ -139,13 +153,29 @@ Portainer should handle how the deployments are being processed.
 
 This graph implicitly consider that all containers are lied to their local docker socket but for graph simplicity only shows containers that actually use the docker socket for docker commands
 
-```mermaid
-flowchart RL
+If a `*` is present it means that the service is destined by default on the manager but can be moved to a worker node as long as the worker node has the label the `hdci-storage-sync=true` label (MAKE SURE TO MOUNT THE VOLUMES CORRECTLY)
 
-    subgraph DNSResolver
+If a `?` is present it means that the service is not required but nice to have. In case you do not use the service you can just assume it is not there...
+
+It is recommended that the distant data is an external disk that is mounted...
+
+The framework does not provide with backup service by default but it is recommended to provide a backup service for the databases.
+
+### Warning
+
+THE LABEL `hdci-storage-sync=true` SHOULD ONLY BE USED IF YOU SYNCHRONIZED THE `HDCI_FOLDER` OTHERWISE IT WILL CREATE DATA LOSS AND INCONSISTENCIES
+
+IF YOU HAVE MULTIPLE MANAGERS MAKE SURE TO ALWAYS SYNCHRONIZE THE `HDCI_FOLDER` TO A SHARED FOLDER
+
+BY DEFAULT THE CONSTRAINTS OF MOST SERVICES WILL IGNORE ANY NODE THAT DOES NOT HAVE THE LABEL `hdci-storage-sync=true`
+
+```mermaid
+flowchart TD
+
+    subgraph DNSServers
         direction LR;
         Cloudflare
-        ...
+        _OtherDNSServers[Other DNS Servers]
     end
 
     subgraph Cloud
@@ -153,117 +183,145 @@ flowchart RL
         SSH
         GoogleCloud
         AWS
-        ..
+        _OtherCloudServices[Other Cloud Services]
     end
 
-    subgraph ControllerVM
-        direction TB;
+    subgraph DistantData
+        direction LR;
+        NFS[(NFS)]
+        _OtherDistantDataServices[(Other Data Services)]
+    end
 
-        DockerSwarmService((Docker Swarm Service))
+    subgraph ManagerVM 
 
-        subgraph SwarmNetwork
-            DatabaseNetwork{Database Network}
-            TraefikNetwork{Traefik Network}
+        subgraph ManagerDockerSpace
+            DockerSwarmService((Docker Swarm Service))
+
+            subgraph SwarmNetwork
+                DatabaseNetwork{Database Network}
+                TraefikNetwork{Traefik Network}
+            end
+
+            DockerSwarmService <--> SwarmNetwork
+
+            ManagerDockerSocket{{Docker Socket}}
+            Traefik[[Traefik]]
+            DroneServer[[Drone Server]]
+            DroneServerRunner[[Drone Server Runner *]]
+            Portainer[[Portainer]]
+            Registry[[Registry *]]
+
+            ManagerDockerSocket <--> DockerSwarmService
+
+            Traefik <--> ManagerDockerSocket
+            Traefik <--> TraefikNetwork
+
+            TraefikNetwork<-->DroneServer
+            TraefikNetwork<--> ManagerDockerSocket 
+
+            TraefikNetwork<-->DroneServer
+
+            DroneServer<-->DroneServerRunner
+            DroneServerRunner<-->ManagerDockerSocket
+
+            TraefikNetwork<-->Registry
+
+            TraefikNetwork<-->Portainer
+
+            Portainer <--> ManagerDockerSocket
         end
 
-        DockerSwarmService <--> SwarmNetwork
+        DistantDataManager[(Distant Data Service Link)]
 
-        HostVMDockerSocket{{Docker Socket}}
-        Traefik[[Traefik Container]]
-        DroneServer[[Drone Server Container]]
-        DroneServerRunner[[Drone Server Runner Container]]
-        Portainer[[Portainer Container]]
-        Registry[[Registry Container]]
+        Traefik <--> DistantDataManager
+        DroneServer <--> DistantDataManager
+        Portainer <--> DistantDataManager
+        Registry <--> DistantDataManager
 
-        HostVMDockerSocket <--> DockerSwarmService
-
-        Traefik <--> HostVMDockerSocket
-        Traefik <--> TraefikNetwork
-
-        TraefikNetwork<-->DroneServer
-        TraefikNetwork<--> HostVMDockerSocket 
-
-        TraefikNetwork<-->DroneServer
-
-        DroneServer<-->DroneServerRunner
-        DroneServerRunner<-->HostVMDockerSocket
-
-        TraefikNetwork<-->Registry
-
-        TraefikNetwork<-->Portainer
-
-        Portainer <--> HostVMDockerSocket
-    end
-
-    subgraph DatabaseVM
-        direction LR;
-
-        DatabaseVMSocketDocker{{Docker Socket}}
-        DatabaseService1Container[(Database Container)]
-        DatabaseService2Container[(Database Container)]
-        DatabaseService3Container[(Database Container)]
-        DatabaseService4Container[(Database Container)]
-
-        DatabaseVMSocketDocker <--> DockerSwarmService
-
-        DatabaseService1Container <--> DatabaseNetwork
-        DatabaseService2Container <--> DatabaseNetwork
-        DatabaseService3Container <--> DatabaseNetwork
-        DatabaseService4Container <--> DatabaseNetwork
-
-        BackupService <--> DatabaseNetwork
     end
 
     subgraph ExampleWorkerVM1
-        direction LR;
 
-        Worker1DockerSocket{{Docker Socket}}
-        Worker1Service1[[Worker WEB UI Replica 1]]
-        Worker1Service2[[Worker API Replica 1]]
+        subgraph ExampleWorkerVM1DockerSpace
+            Worker1Service1[[Worker WEB UI Replica 1]]
+            Worker1Service2[[Worker API Replica 1]]
+            DatabaseService1[(SQL Replica1)]
+            DatabaseService3[(Postgres Replica 1)]
+            BackupService1[[Backup Service]]
 
-        Worker1DockerSocket <--> DockerSwarmService
+            Worker1DockerSocket <--> DockerSwarmService
 
-        Worker1Service1 <--> TraefikNetwork
-        Worker1Service1 <--> DatabaseNetwork
+            Worker1Service1 <--> TraefikNetwork
+            Worker1Service1 <--> DatabaseNetwork
 
-        Worker1Service2 <--> TraefikNetwork
-        Worker1Service2 <--> DatabaseNetwork
+            Worker1Service2 <--> TraefikNetwork
+            Worker1Service2 <--> DatabaseNetwork
+
+            DatabaseService1 <--> DatabaseNetwork
+            DatabaseService2 <--> DatabaseNetwork
+
+            BackupService1 <--> DatabaseNetwork
+        end
+
+        DistantDataWorker1[(NFS Service Link?)]
+
+        DatabaseService1 <--> DistantDataWorker1
+        DatabaseService2 <--> DistantDataWorker1
+        BackupService1 <--> DistantDataWorker1
     end
 
     subgraph ExampleWorkerVM2
         direction LR;
 
-        Worker2DockerSocket{{Docker Socket}}
-        Worker2Service1[[Worker WEB UI Replica 2]]
-        Worker2Service2[[Worker API Replica 2]]
-        Worker2Service3[[Worker API Replica 3]]
+        DistantDataWorker2[(NFS Service Link)]
 
-        Worker2DockerSocket <--> DockerSwarmService
+        subgraph ExampleWorkerVM2DockerSpace
+            Worker2Service1[[Worker WEB UI Replica 2]]
+            Worker2Service2[[Worker API Replica 2]]
+            Worker2Service3[[Worker API Replica 3]]
+            DatabaseService2[(SQL Replica2)]
+            DatabaseService4[(Postgres Replica 1)]
+            BackupService2[[Backup Service]]
 
-        Worker2Service1 <--> TraefikNetwork
-        Worker2Service1 <--> DatabaseNetwork
+            Worker2Service1 <--> TraefikNetwork
+            Worker2Service1 <--> DatabaseNetwork
 
-        Worker2Service2 <--> TraefikNetwork
-        Worker2Service2 <--> DatabaseNetwork
+            Worker2Service2 <--> TraefikNetwork
+            Worker2Service2 <--> DatabaseNetwork
 
-        Worker2Service3 <--> DatabaseNetwork
-        Worker2Service3 <--> TraefikNetwork
+            Worker2Service3 <--> DatabaseNetwork
+            Worker2Service3 <--> TraefikNetwork
+
+            BackupService2 <--> DatabaseNetwork
+
+            DatabaseService3 <--> DatabaseNetwork
+            DatabaseService4 <--> DatabaseNetwork
+        end
+
+        DatabaseService3 <--> DistantDataWorker2
+        DatabaseService4 <--> DistantDataWorker2
+        BackupService2 <--> DistantDataWorker2
+
     end
 
-    subgraph Clients
-        direction TB;
+
+    subgraph DistantClients
         DistantClient1
         DistantClient2
         DistantClient3
         DistantClient4
+        DistantClient5
+        DistantClient6
+        DistantClient7
     end
 
-    Traefik <--> DNSResolver
+    Traefik <--> DNSServers
+    DistantClients <--> DNSServers
 
-    BackupService <--> Cloud
+    BackupService1 <--> Cloud
+    BackupService2 <--> Cloud
 
-    DistantClient1 <--> DNSResolver
-    DistantClient2 <--> DNSResolver
-    DistantClient3 <--> DNSResolver
-    DistantClient4 <--> DNSResolver
+    DistantData <--> DistantDataManager
+    DistantData <--> DistantDataWorker1
+    DistantData <--> DistantDataWorker2
 ```

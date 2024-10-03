@@ -6,11 +6,18 @@ x-public-validation:
   hdci_domain: ${HDCI_DOMAIN? HDCI Domain missing}
 
 services:
+
+  # role == manager && requires storage sync (Global)
   hdci-traefik:
 
     deploy:
+      mode: global
       restart_policy:
         condition: any
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.hdci-storage-sync == true
 
     image: traefik:v3
 
@@ -52,8 +59,11 @@ services:
     networks:
       - hdci-traefik-network
 
+  # Everyone (no constraints) (Global)
   hdci-whoami-traefik:
+
     deploy:
+      mode: global
       restart_policy:
         condition: any
 
@@ -67,14 +77,24 @@ services:
     networks:
       - hdci-traefik-network
 
+  # role >= worker && requires storage sync
   hdci-drone-server:
+
     deploy:
+      mode: replicated
+      replicas: ${DRONE_SERVER_REPLICAS:-1}
       restart_policy:
         condition: any
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.hdci-storage-sync == true
 
     image: drone/drone:2
+
     volumes:
       - ${HDCI_FOLDER}/drone/data:/data
+
     environment:
       DRONE_SERVER_HOST: drone.${HDCI_DOMAIN}
       DRONE_GITHUB_CLIENT_ID: ${DRONE_GITHUB_CLIENT_ID?Missing Drone Github Client ID}
@@ -94,67 +114,102 @@ services:
       DRONE_LOGS_TRACE: ${DRONE_LOGS_TRACE:-true}
       # Misc.
       TZ: ${DRONE_TZ:-Europe/Paris}
+
     labels:
       - traefik.enable=true
       - traefik.http.routers.hdci-drone-entrypoints=websecure
       - traefik.http.routers.hdci-drone.rule=Host(`drone.${HDCI_DOMAIN}`)
       - traefik.http.routers.hdci-drone.tls.certResolver=cloudflare
+
     networks:
       - hdci-traefik-network
 
+  # role >= worker && requires registry auth
   hdci-drone-runner-docker:
+
     deploy:
-      restart_policy:
-        condition: any
       mode: replicated
       replicas: ${DRONE_RUNNER_REPLICAS:-1}
-      endpoint_mode: vip
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.labels.hdci-registry-auth == true
 
     image: drone/drone-runner-docker:1
+
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+
     restart: always
+
     environment:
       DRONE_RPC_PROTO: https
       DRONE_RPC_HOST: drone.${HDCI_DOMAIN}
       DRONE_RPC_SECRET: ${DRONE_RPC_SECRET}
       DRONE_RUNNER_CAPACITY: ${DRONE_RUNNER_CAPACITY:-2}
       DRONE_RUNNER_NAME: hdci-drone-runner-docker
+
     networks:
       - hdci-traefik-network
 
+  # role >= worker && requires storage sync
   hdci-registry:
+
     deploy:
+      mode: replicated
+      replicas: ${HDCI_REGISTRY_REPLICAS:-1}
       restart_policy:
         condition: any
+      placement:
+        constraints:
+          - node.labels.hdci-storage-sync == true
+
     image: registry:2
+
     environment:
       REGISTRY_AUTH: htpasswd
       REGISTRY_AUTH_HTPASSWD_REALM: Registry
       REGISTRY_AUTH_HTPASSWD_PATH: /registry/auth/.htpasswd
       REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /registry/data
       REGISTRY_HTTP_RELATIVEURLS: "true"
+
     volumes:
       - ${HDCI_FOLDER}/registry/:/registry
       - ${HDCI_FOLDER}/static-configurations/auth/private/registry:/registry/auth:ro
+
     labels:
       - traefik.enable=true
       - traefik.http.routers.hdci-registry.entrypoints=websecure
       - traefik.http.routers.hdci-registry.rule=Host(`registry.${HDCI_DOMAIN}`)
       - traefik.http.routers.hdci-registry.tls.certResolver=cloudflare
       - traefik.http.services.hdci-registry.loadbalancer.server.port=5000
+
     networks:
       - hdci-traefik-network
 
+  # role == manager && requires storage sync
   hdci-portainer:
+
     deploy:
+      mode: replicated
+      replicas: ${HDCI_PORTAINER_REPLICAS:-1}
       restart_policy:
         condition: any
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.hdci-storage-sync == true
+
     image: portainer/portainer-ce:latest
-    command: -H unix:///var/run/docker.sock
+
+    command:
+      - -H unix:///var/run/docker.sock
+
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${HDCI_FOLDER}/portainer:/data
+
     labels:
       - traefik.enable=true
       - traefik.http.routers.hdci-portainer.rule=Host(`portainer.${HDCI_DOMAIN}`)
@@ -162,22 +217,34 @@ services:
       - traefik.http.routers.hdci-portainer.tls.certResolver=cloudflare
       - traefik.http.services.hdci-portainer.loadbalancer.server.port=9000
       - traefik.http.routers.middlewares.auth.basicauth.usersfile=/authfiles/portainer/.htpasswd
+
     networks:
       - hdci-traefik-network
 
+  # role >= worker && requires storage sync
   hdci-uptime-kuma:
+
     deploy:
+      mode: replicated
+      replicas: ${HDCI_UPTIME_KUMA_REPLICAS:-1}
       restart_policy:
         condition: any
+      placement:
+        constraints:
+          - node.labels.hdci-storage-sync == true
+
     image: louislam/uptime-kuma:1
+
     volumes:
       - ${HDCI_FOLDER}/uptime-kuma:/app/data
+
     labels:
       - traefik.enable=true
       - traefik.http.routers.hdci-uptime-kuma.entrypoints=websecure
       - traefik.http.routers.hdci-uptime-kuma.rule=Host(`status.${HDCI_DOMAIN}`)
       - traefik.http.routers.hdci-uptime-kuma.tls.certResolver=cloudflare
       - traefik.http.services.hdci-uptime-kuma.server.port=3001
+
     networks:
       - hdci-traefik-network
 
