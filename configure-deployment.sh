@@ -70,15 +70,6 @@ get_cloudflare_trusted_ips() {
 	echo -ne "$cloudflare_trusted_ips"
 }
 
-if [ -z "${HDCI_FOLDER}" ]; then
-	echo "HDCI_FOLDER is not set"
-	echo "Using default value: ./docker-data/hdci"
-	HDCI_FOLDER=./docker-data/hdci
-fi
-
-
-HDCI_STATIC_CONFIGURATION="$HDCI_FOLDER/static-configurations"
-
 if [ $# -ne 7 ]; then
 	echo "$0 <DOMAIN_NAME> <GITHUB_USER> <CLOUDFLARE_API_EMAIL> <CLOUDFLARE_API_KEY> <DRONE_GITHUB_CLIENT_ID> <DRONE_GITHUB_CLIENT_SECRET> <GITHUB_FILTERING>"
 	echo "GITHUB_FILTERING can either be users or orgs separated by a comma"
@@ -86,6 +77,16 @@ if [ $# -ne 7 ]; then
 	exit 1
 fi
 
+if [ -z "${HDCI_FOLDER}" ]; then
+	echo "HDCI_FOLDER is not set"
+	echo "Using default value: ./docker-data/hdci"
+	HDCI_FOLDER=./docker-data/hdci
+fi
+
+HDCI_STATIC_CONFIGURATION="$HDCI_FOLDER/static-configurations"
+
+# Ensure most of the base folders
+mkdir -p "$HDCI_STATIC_CONFIGURATION"
 
 hdci_folder_sed_compliant=$(echo $HDCI_FOLDER | sed 's/\//\\\//g')
 
