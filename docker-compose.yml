@@ -22,35 +22,14 @@ services:
      #  mode: host
 
     command:
-      - --log.level=${TRAEFIK_LOG_LEVEL:-debug}
-      - --accessLog.filePath=/var/log/traefik/access.log
-
-      - --api.insecure=true
-      - --api.dashboard=true
-
-      - --entrypoints.web.address=:80
-      - --entrypoints.web.http.redirections.entryPoint.to=websecure
-      - --entrypoints.web.http.redirections.entryPoint.scheme=https
-      - --entrypoints.web.http.redirections.entryPoint.permanent=true
-
-      - --entrypoints.websecure.address=:443
-
-      - --providers.docker=true
-      - --providers.docker.endpoint=unix:///var/run/docker.sock
-      - --providers.docker.exposedByDefault=false
-      - --providers.docker.watch=true
-
-      - --certificatesresolvers.cloudflare.acme.dnschallenge=true
-      - --certificatesresolvers.cloudflare.acme.dnschallenge.provider=cloudflare
-      - --certificatesresolvers.cloudflare.acme.storage=/letsencrypt/acme.json
-
-      - --entrypoints.websecure.forwardedHeaders.trustedIPs=${CLOUDFLARE_TRUSTED_IPS}
+      --configFile=
 
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ${HDCI_FOLDER?Missing hdci folder}/traefik/letsecnrypt:/letsencrypt
       - ${HDCI_FOLDER}/traefik/logs:/var/log/traefik
-      - ${HDCI_FOLDER}/auth:/authfiles
+
+      - ${HDCI_FOLDER}/static-configurations/auth/rev-proxy:/authfiles:ro
 
     environment:
       CF_API_EMAIL: ${CLOUDFLARE_API_EMAIL}
@@ -151,7 +130,7 @@ services:
       REGISTRY_HTTP_RELATIVEURLS: "true"
     volumes:
       - ${HDCI_FOLDER}/registry/:/registry
-      - ${HDCI_FOLDER}/auth:/registry/auth
+      - ${HDCI_FOLDER}/static-configurations/auth/private/registry:/registry/auth:ro
     labels:
       - traefik.enable=true
       - traefik.http.routers.hdci-registry.entrypoints=websecure

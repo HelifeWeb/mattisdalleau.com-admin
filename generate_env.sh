@@ -1,6 +1,8 @@
-#!/bin/sh -e
+#!/bin/bash
 
-required_commands="openssl curl htpasswd jq base64"
+set -e
+
+required_commands="openssl curl htpasswd base64"
 
 for command in $required_commands; do
 	if ! command -v $command > /dev/null; then
@@ -11,16 +13,16 @@ done
 
 ask_yes_no() {
 	while true; do
-		read -p "$1 [y/n] " yn
+		read -p "$1 [y/N] " yn
 		case $yn in
 			[Yy]* ) return 0;;
 			[Nn]* ) return 1;;
-			* ) echo "Please answer yes or no.";;
+			* ) echo "Defaulting to no."; return 0 ;;
 		esac
 	done
 }
 
-PASSWORD_LENGTH=256
+PASSWORD_LENGTH=64
 
 generate_secret() {
 	current=$PASSWORD_LENGTH
@@ -38,6 +40,19 @@ should_generate_secrets() {
 	return 0
 }
 
+make_auth_services() {
+	local var="$1"
+	for service in "${var[@]}" ; do
+		local service_path="$HDCI_STATIC_CONFIGURATION/$2/$service"
+
+		if should_generate_secrets "$service_path"; then
+			generate_secrets "$service_path"
+		else
+			echo "Skipping secrets generation for $service"
+		fi
+	done
+}
+
 generate_secrets() {
 	user="$(generate_secret)"
 	pass="$(generate_secret)"
@@ -47,14 +62,22 @@ generate_secrets() {
 	echo "$(echo $user:$pass | base64)" > "$1/.non-encrypted.b64"
 }
 
-if [ -z ${HDCI_FOLDER} ]; then
+get_cloudflare_trusted_ips() {
+	local cloudflare_trusted_ipv4=$(curl -s https://www.cloudflare.com/ips-v4 | tr '\n' ',')
+	local cloudflare_trusted_ipv6=$(curl -s https://www.cloudflare.com/ips-v6 | tr '\n' ',')
+	local cloudflare_trusted_ips="$cloudflare_trusted_ipv4,$cloudflare_trusted_ipv6"
+	local cloudflare_trusted_ips=$(echo $cloudflare_trusted_ips | sed 's/,$//g' | sed 's/,,/,/g' | sed 's/\//\\\//g')
+	echo -ne "$cloudflare_trusted_ips"
+}
+
+if [ -z "${HDCI_FOLDER}" ]; then
 	echo "HDCI_FOLDER is not set"
-	echo "Using default value: ./data/hdci"
-	HDCI_FOLDER=./data/hdci
+	echo "Using default value: ./docker-data/hdci"
+	HDCI_FOLDER=./docker-data/hdci
 fi
 
-HDCI_FOLDER_REGISTRY_AUTH="$HDCI_FOLDER/auth/registry"
-HDCI_FOLDER_PORTAINER_AUTH="$HDCI_FOLDER/auth/portainer"
+
+HDCI_STATIC_CONFIGURATION="$HDCI_FOLDER/static-configurations"
 
 if [ $# -ne 7 ]; then
 	echo "$0 <DOMAIN_NAME> <GITHUB_USER> <CLOUDFLARE_API_EMAIL> <CLOUDFLARE_API_KEY> <DRONE_GITHUB_CLIENT_ID> <DRONE_GITHUB_CLIENT_SECRET> <GITHUB_FILTERING>"
@@ -63,12 +86,10 @@ if [ $# -ne 7 ]; then
 	exit 1
 fi
 
-cloudflare_trusted_ipv4=$(curl -s https://www.cloudflare.com/ips-v4 | tr '\n' ',')
-cloudflare_trusted_ipv6=$(curl -s https://www.cloudflare.com/ips-v6 | tr '\n' ',')
-cloudflare_trusted_ips="$cloudflare_trusted_ipv4,$cloudflare_trusted_ipv6"
-cloudflare_trusted_ips=$(echo $cloudflare_trusted_ips | sed 's/,$//g' | sed 's/,,/,/g' | sed 's/\//\\\//g')
 
 hdci_folder_sed_compliant=$(echo $HDCI_FOLDER | sed 's/\//\\\//g')
+
+cp -ri static-configurations/ "$HDCI_FOLDER"
 
 cat .env.example | \
 	sed "s/{{DOMAIN}}/$1/g" | \
@@ -80,17 +101,13 @@ cat .env.example | \
 	sed "s/{{DRONE_RPC_SECRET}}/$(generate_secret 32)/g" | \
 	sed "s/{{GITHUB_FILTERING}}/$7/g" | \
 	sed "s/{{DRONE_DATABASE_SECRET}}/$(generate_secret 32)/g" | \
-	sed "s/{{CLOUDFLARE_TRUSTED_IPS}}/$cloudflare_trusted_ips/g" | \
 	sed "s/{{HDCI_FOLDER}}/$hdci_folder_sed_compliant/g" > .env
 
-if should_generate_secrets "$HDCI_FOLDER_REGISTRY_AUTH"; then
-	generate_secrets "$HDCI_FOLDER_REGISTRY_AUTH"
-else
-	echo "Skipping registry secrets generation for registry"
-fi
+sed -i "s/{{CLOUDFLARE_TRUSTED_IPS}}/$(get_cloudflare_trusted_ips)/g" \
+	"$HDCI_FOLDER/static-configurations/traefik/traefik-conf.yml"
 
-if should_generate_secrets "$HDCI_FOLDER_PORTAINER_AUTH"; then
-	generate_secrets "$HDCI_FOLDER_REGISTRY_AUTH"
-else
-	echo "Skipping registry secrets generation for portainer"
-fi
+private_auth=("registry")
+rev_proxy_auth=("portainer")
+
+make_auth_services "$rev_proxy_auth" "auth/rev-proxy"
+make_auth_services "$private_auth" "auth/private"

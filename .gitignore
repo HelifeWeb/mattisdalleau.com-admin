@@ -165,3 +165,7 @@ traefik-data
 .history
 .traefik.users
 *acme*.json
+docker-data
+
+# vim files
+*.*.swp 
