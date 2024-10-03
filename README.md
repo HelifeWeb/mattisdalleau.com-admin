@@ -2,7 +2,7 @@
 
 Deployment of traefik, portainer, docker-registry and Drone-CI.
 
-## Requirements :
+## Requirements
 
 - A domain name (Hosted on Cloudflare)
 - A server with a public IP address
@@ -13,7 +13,7 @@ Deployment of traefik, portainer, docker-registry and Drone-CI.
 
 For now it will not generate the DNS records for you, but it will create the certificates.
 
-## What it deploys:
+## What it deploys
 
 - Traefik (The reverse proxy that will handle the SSL certificates and the routing)
 - Portainer (A docker management UI)
@@ -22,7 +22,7 @@ For now it will not generate the DNS records for you, but it will create the cer
 - Watchtower (A tool that will update your containers when a new image is available)
 - Whoami-Service (A simple service that will return the IP address of the request to test the deployment)
 
-## How to use it:
+## How to use it
 
 The main goal of this deployment is to be able to deploy a simple CI/CD for your server prod using lightweight tools that are easy to use.
 
@@ -34,7 +34,7 @@ Then the repository with the deployment configuration will be used to deploy the
 
 If an image is updated, the pipeline will be triggered and the new image will be deployed automatically using Watchtower.
 
-## Setup:
+## Setup
 
 ### 1. Clone this repository
 
@@ -42,20 +42,19 @@ If an image is updated, the pipeline will be triggered and the new image will be
 git clone git@github.com:HelifeWasTaken/hdci.git
 ```
 
-### 2. Register drone as an application on github by following this guide:
+### 2. Register drone as an application on github by following this guide
 
-https://docs.drone.io/server/provider/github/
+[Drone Github Provider Docs](https://docs.drone.io/server/provider/github/)
 
 The callback URL should be `https://drone.<your-domain>/login`
 
 Please then store your client ID and client secret in a safe place, you will need them later.
 
-### 3. Get your Cloudflare API key:
+### 3. Get your Cloudflare API key
 
-https://developers.cloudflare.com/fundamentals/api/get-started/create-token/
+[Create a Cloudflare Token](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)
 
-
-### 4. Generate the env file for the deployment:
+### 4. Generate the env file for the deployment
 
 You can use the `generate_env.sh` script to generate the `.env` file for drone.
 
@@ -63,31 +62,35 @@ You can use the `generate_env.sh` script to generate the `.env` file for drone.
 ./generate_env.sh # To see all required parameters
 ```
 
-### 5. Make sure your DNS records are set up correctly:
+### 5. Make sure your DNS records are set up correctly
 
 You need to have the following DNS records at least:
-```
+
+```txt
 A record: <your-domain> -> <your-server-ip>
 CNAME record: drone.<your-domain> -> <your-domain>
 CNAME record: registry.<your-domain> -> <your-domain>
 CNAME record: whoami.<your-domain> -> <your-domain>
 ```
 
-### 6. Deploy the stack:
+### 6. Deploy the stack
 
 ```bash
 docker-compose up -d
 ```
 
-### 7. Test the deployment by connecting:
+### 7. Test the deployment by connecting
+
 You can test in order:
- - whoami
- - drone
+
+- whoami
+- drone
 
 Then you can connect in ssh to your machine to forward the port 9000 to your local machine to connect to the portainer UI. (Or you can setup a VPN using openvpn to connect to your server).
 I would highly discourage you to expose the portainer UI to the internet in any way.
 
 Make also sure that your portainer service is not exposed to the internet otherwise you may need to add asap a firewall to your server.
+
 ```bash
 # if you use ufw you can use this script to allow only 80/443/22 and disallow everything else
 for i in $(ufw status numbered | grep -oP '^\[\d+\].*?(?=\s+\[)|^\[\d+\].*'); do ufw delete $i; done
@@ -98,20 +101,22 @@ ufw enable
 ```
 
 Note:
-For mac user 
-```
+For mac users
+
+```bash
 export DISPLAY=0.0
 ```
 
 If docker login is not possible, install these package
-```
+
+```bash
 sudo apt install dbus-x11 gnupg2 pass
 ```
-
 
 I will not cover how to setup a VPN here, but you can find a lot of tutorials on the internet.
 
 To then connect to your portainer UI you can use the following command:
+
 ```bash
 ssh -L 9000:localhost:9000 <your-user>@<your-server-ip>
 ```
@@ -132,26 +137,48 @@ DroneCI should build image and push it to the registry.
 
 Portainer should handle how the deployments are being processed.
 
-```mermaid
-graph TD;
+This graph implicitly consider that all containers are lied to their local docker socket but for graph simplicity only shows containers that actually use the docker socket for docker commands
 
-    subgraph SwarmNetwork
-        DatabaseNetwork
-        TraefikNetwork
-        WorkerNetwork
-    end
+```mermaid
+flowchart LR
 
     subgraph Cloud
         DifferentVM
         GoogleCloud
         AWS
+        Other..
     end
 
-    subgraph HostVM
+    subgraph DNSResolver
+        Cloudflare
+        Other..
+    end
+
+    subgraph ControllerVM
         direction TB;
+
+        DockerSwarmService((Docker Swarm service))
+
+
+        subgraph SwarmNetwork
+            DatabaseNetwork{Database Network}
+            TraefikNetwork{Traefik Network}
+            WorkerNetwork{Worker Network}
+        end
+
+        DockerSwarmService <--> SwarmNetwork
+
+        HostVMDockerSocket{{Docker Socket}}
+        Traefik[[Traefik Container]]
+        DroneServer[[Drone Server Container]]
+        DroneServerRunner[[Drone Server Runner Container]]
+        Portainer[[Portainer Container]]
+        Registry[[Registry Container]]
 
         HostVMDockerSocket <--> DockerSwarmService
 
+        Traefik <--> HostVMDockerSocket
+        Traefik <--> DNSResolver
         Traefik <--> TraefikNetwork
 
         TraefikNetwork<-->DroneServer
@@ -172,53 +199,71 @@ graph TD;
     subgraph DatabaseVM
         direction TB;
 
+        DatabaseVMSocketDocker{{Docker Socket}}
+        DatabaseService1Container[(Database Container)]
+        DatabaseService2Container[(Database Container)]
+        DatabaseService3Container[(Database Container)]
+        DatabaseService4Container[(Database Container)]
+
         DatabaseVMSocketDocker <--> DockerSwarmService
 
-        DatabaseService1Container <--> DatabaseVMSocketDocker
         DatabaseService1Container <--> DatabaseNetwork
-
-        DatabaseService2Container <--> DatabaseVMSocketDocker
         DatabaseService2Container <--> DatabaseNetwork
-
-        DatabseService3And4Container <--> DatabaseVMSocketDocker
-        DatabseService3And4Container <--> DatabaseNetwork
+        DatabaseService3Container <--> DatabaseNetwork
+        DatabaseService4Container <--> DatabaseNetwork
 
         BackupService <--> Cloud
 
-        BackupService <--> DatabaseService1Container
-        BackupService <--> DatabaseService2Container
-        BackupService <--> DatabseService3And4Container 
+        BackupService <--> DatabaseNetwork
     end
 
     subgraph ExampleWorkerVM1
+        direction TB;
+
+        Worker1DockerSocket{{Docker Socket}}
+        Worker1Service1[[Worker WEB UI Replica 1]]
+        Worker1Service2[[Worker API Replica 1]]
+
         Worker1DockerSocket <--> DockerSwarmService
 
-        Worker1Service <--> TraefikNetwork
-        Worker1Service <--> WorkerNetwork
+        Worker1Service1 <--> TraefikNetwork
+        Worker1Service1 <--> WorkerNetwork
+        Worker1Service1 <--> DatabaseNetwork
+
         Worker1Service2 <--> TraefikNetwork
         Worker1Service2 <--> WorkerNetwork
-
-        Worker1Service3RequiresDB1 <--> DatabaseNetwork
-        Worker1Service3RequireDB1 <--> TraefikNetwork
+        Worker1Service2 <--> DatabaseNetwork
     end
 
     subgraph ExampleWorkerVM2
+        direction TB;
+
+        Worker2DockerSocket{{Docker Socket}}
+        Worker2Service1[[Worker WEB UI Replica 2]]
+        Worker2Service2[[Worker API Replica 2]]
+
+
         Worker2DockerSocket <--> DockerSwarmService
 
-        Worker2Service <--> TraefikNetwork
-        Worker2Service <--> WorkerNetwork
+        Worker2Service1 <--> TraefikNetwork
+        Worker2Service1 <--> WorkerNetwork
+        Worker2Service1 <--> DatabaseNetwork
 
-        Worker2Service2 <--> Worker2Service
-        Worker2Service2 <--> Worker1Service2
+        Worker2Service2 <--> TraefikNetwork
         Worker2Service2 <--> WorkerNetwork
+        Worker2Service2 <--> DatabaseNetwork
 
+        Worker2Service3 <--> DatabaseNetwork
+        Worker2Service3 <--> TraefikNetwork
+        Worker2Service3 <--> WorkerNetwork
     end
 
-
     subgraph Clients
-        DistantClient <--> Traefik
-        DistantClient2 <--> Traefik
-        DistantClient3 <--> Traefik
-        DistantClient4 <--> Traefik
+        direction TB;
+
+        DistantClient <--> DNSResolver
+        DistantClient2 <--> DNSResolver
+        DistantClient3 <--> DNSResolver
+        DistantClient4 <--> DNSResolver
     end
 ```
