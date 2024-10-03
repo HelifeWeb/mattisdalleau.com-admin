@@ -206,7 +206,7 @@ graph TD;
         Worker2Service <--> TraefikNetwork
         Worker2Service <--> WorkerNetwork
 
-        Worker2Service2 <--> Worker2Serivce
+        Worker2Service2 <--> Worker2Service
         Worker2Service2 <--> Worker1Service2
         Worker2Service2 <--> WorkerNetwork
 
