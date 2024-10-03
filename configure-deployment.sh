@@ -77,6 +77,14 @@ if [ $# -ne 7 ]; then
 	exit 1
 fi
 
+HDCI_DOMAIN="$1"
+GITHUB_USER="$2"
+CLOUDFLARE_API_EMAIL="$3"
+CLOUDFLARE_API_KEY="$4"
+DRONE_GITHUB_CLIENT_ID="$5"
+DRONE_GITHUB_CLIENT_SECRET="$6"
+DRONE_GITHUB_FILTERING="$7"
+
 if [ -z "${HDCI_FOLDER}" ]; then
 	echo "HDCI_FOLDER is not set"
 	echo "Using default value: ./docker-data/hdci"
@@ -93,19 +101,20 @@ hdci_folder_sed_compliant=$(echo $HDCI_FOLDER | sed 's/\//\\\//g')
 cp -ri static-configurations/ "$HDCI_FOLDER"
 
 cat .env.example | \
-	sed "s/{{DOMAIN}}/$1/g" | \
-	sed "s/{{GITHUB_USER}}/$2/g" | \
-	sed "s/{{CLOUDFLARE_API_EMAIL}}/$3/g" | \
-	sed "s/{{CLOUDFLARE_API_KEY}}/$4/g" | \
-	sed "s/{{DRONE_GITHUB_CLIENT_ID}}/$5/g" | \
-	sed "s/{{DRONE_GITHUB_CLIENT_SECRET}}/$6/g" | \
+	sed "s/{{HDCI_DOMAIN}}/$HDCI_DOMAIN/g" | \
+	sed "s/{{GITHUB_USER}}/$GITHUB_USER/g" | \
+	sed "s/{{DRONE_GITHUB_CLIENT_ID}}/$DRONE_GITHUB_CLIENT_ID/g" | \
+	sed "s/{{DRONE_GITHUB_CLIENT_SECRET}}/$DRONE_GITHUB_CLIENT_SECRET/g" | \
 	sed "s/{{DRONE_RPC_SECRET}}/$(generate_secret 32)/g" | \
-	sed "s/{{GITHUB_FILTERING}}/$7/g" | \
+	sed "s/{{GITHUB_FILTERING}}/$DRONE_GITHUB_FILTERING/g" | \
 	sed "s/{{DRONE_DATABASE_SECRET}}/$(generate_secret 32)/g" | \
 	sed "s/{{HDCI_FOLDER}}/$hdci_folder_sed_compliant/g" > .env
 
 sed -i "s/{{CLOUDFLARE_TRUSTED_IPS}}/$(get_cloudflare_trusted_ips)/g" \
 	"$HDCI_FOLDER/static-configurations/traefik/conf.yaml"
+
+echo "$CLOUDFLARE_API_EMAIL" > "$HDCI_FOLDER/static-configurations/cloudflare/CLOUDFLARE_API_EMAIL"
+echo "$CLOUDFLARE_API_KEY" > "$HDCI_FOLDER/static-configurations/cloudflare/CLOUDFLARE_API_KEY"
 
 private_auth=("registry")
 rev_proxy_auth=("portainer")

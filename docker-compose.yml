@@ -31,15 +31,16 @@ services:
       - ${HDCI_FOLDER}/traefik/letsecnrypt:/letsencrypt
       - ${HDCI_FOLDER}/traefik/logs:/var/log/traefik
 
-      - ${HDCI_FOLDER}/static-configurations/traefik:/conf:ro
+      - ${HDCI_FOLDER}/static-configurations/traefik:/traefik-conf:ro
+      - ${HDCI_FOLDER}/static-configurations/cloudflare:/cloudflare-api:ro
       - ${HDCI_FOLDER}/static-configurations/auth/rev-proxy:/authfiles:ro
 
     command:
-      --configFile=/conf/conf.yaml
+      --configFile=/traefik-conf/conf.yaml
 
     environment:
-      CF_API_EMAIL: ${CLOUDFLARE_API_EMAIL}
-      CF_API_KEY: ${CLOUDFLARE_API_KEY}
+      CF_API_EMAIL_FILE: /cloudflare-api/CLOUDFLARE_API_EMAIL
+      CF_API_KEY_FILE: /cloudflare-api/CLOUDFLARE_API_KEY
 
     labels:
       - traefik.enable=true
@@ -153,7 +154,7 @@ services:
     command: -H unix:///var/run/docker.sock
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${HDCI_FOLDER}/portainer:/ddata
+      - ${HDCI_FOLDER}/portainer:/data
     labels:
       - traefik.enable=true
       - traefik.http.routers.hdci-portainer.rule=Host(`portainer.${HDCI_DOMAIN}`)
