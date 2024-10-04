@@ -189,6 +189,8 @@ flowchart TD
     subgraph DistantData
         direction LR;
         NFS[(NFS)]
+        GlusterFS[(GlusterFS)]
+        Ceph[(Ceph)]
         _OtherDistantDataServices[(Other Data Services)]
     end
 
