@@ -2,6 +2,8 @@
 
 Deployment of traefik, portainer, docker-registry and Drone-CI.
 
+This branch is made for a Docker Swarm if you want/prefer to deploy a [Single-Node/No-Swarm](https://github.com/HelifeWasTaken/CI-Deployer/tree/no-swarm)
+
 ## Requirements
 
 - A domain name (Hosted on Cloudflare)
