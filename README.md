@@ -95,6 +95,7 @@ CNAME record: portainer.<your-domain> -> <your-domain>
 docker swarm init
 docker stack deploy -c docker-compose.yml hdci
 docker node update --label-add hdci-storage-sync=true "your-manager-node"
+docker node update --label-add hdci-proxyable=true "your-manager-node"
 
 # Now login into the registry
 docker login registry.<your-domain>
@@ -110,11 +111,13 @@ docker node ls
 ##### If you have multiple managers (Optional)
 
 This assumes that you configured the deployment or moved the `docker-data` folder to a shared NFS folder.
+This also assumes that you have configured a fallback for the reverse proxy 
 
 ```bash
 docker swarm join --token <your-token> <your-manager-ip>:2377
 docker stack deploy -c docker-compose.yml hdci
 docker node update --label-add hdci-storage-sync=true "your-manager-node"
+docker node update --label-add hdci-proxyable=true "your-manager-node"
 docker node update --role manager "your-manager-node"
 docker login registry.<your-domain>
 docker node update --label-add hdci-registry-auth=true "your-manager-node"
