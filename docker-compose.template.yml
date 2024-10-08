@@ -47,8 +47,8 @@ services:
       - ${HDCI_FOLDER}/static-configurations/auth/rev-proxy:/authfiles:ro
 
     command:
-      --entrypoints.web.address=:80
-      --entrypoints.websecure.address=:443
+      --entrypoints.web.address=:${HDCI_TRAEFIK_WEB_PORT}
+      --entrypoints.websecure.address=:${HDCI_TRAEFIK_WEBSECURE_PORT}
 
       --configFile=/traefik-conf/conf.yaml
 
@@ -70,7 +70,6 @@ services:
         - traefik.http.routers.hdci-whoami.tls.certResolver=cloudflare
         - traefik.http.services.hdci-whoami.loadbalancer.server.port=80
     image: traefik/whoami:latest
-    restart: always
     networks:
       - ${HDCI_TRAEFIK_NETWORK_NAME}
 
@@ -137,8 +136,6 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
-    restart: always
-
     environment:
       DRONE_RPC_PROTO: https
       DRONE_RPC_HOST: drone.${HDCI_DOMAIN}
@@ -202,8 +199,8 @@ services:
         - traefik.http.routers.hdci-portainer.tls.certResolver=cloudflare
         - traefik.http.services.hdci-portainer.loadbalancer.server.port=9000
 
-        - traefik.http.routers.middlewares.hdci-portainer-auth.basicauth.usersfile=/authfiles/portainer/.htpasswd
-        - traefik.http.routers.hdci-portainer.middlewares=hdci-portainer-auth
+          #- traefik.http.routers.middlewares.hdci-portainer-auth.basicauth.usersfile=/authfiles/portainer/.htpasswd
+          #- traefik.http.routers.hdci-portainer.middlewares=hdci-portainer-auth
 
     image: portainer/portainer-ce:latest
 
