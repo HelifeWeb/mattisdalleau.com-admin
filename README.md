@@ -18,7 +18,7 @@ This branch is made for a Docker Swarm if you want/prefer to deploy a [Single-No
 
 - NFS share (Or another kind of File sharing service)
 
-I will make the assumption that you will use a NFS share to synchronize the data.
+I will make the assumption that you will use a folder with sharable data `NFS, GlusterFS...` to synchronize the data.
 
 ## What it deploys
 
@@ -69,7 +69,7 @@ You can use the `configure-deployment.sh` script to generate the `.env` and `doc
 ./configure-deployment.sh # To see all required parameters
 ```
 
-If you want to use multiple managers you can point the folder to a shared NFS folder.
+If you want to use multiple managers you can point the folder to a shared folder.
 
 ```bash
 HDCI_FOLDER=path/to/nfs ./configure-deployment.sh
@@ -96,9 +96,9 @@ docker swarm init
 
 # Then deploy
 # Either manually 
-# envsubst < docker-compose.template.yml > docker-compose.yml
-# docker stack deploy -c docker-compose.yml hdci
-# Or using the script
+# envsubst < docker-compose.template.yml > docker-compose-prod.yml
+# docker stack deploy -c docker-compose-prd.yml hdci
+# Or using the convinience script
 bash run.sh
 
 docker node update --label-add hdci-storage-sync=true "your-manager-node"
@@ -117,7 +117,7 @@ docker node ls
 
 ##### If you have multiple managers (Optional)
 
-This assumes that you configured the deployment or moved the `docker-data` folder to a shared NFS folder.
+This assumes that you configured the deployment or moved the `docker-data` folder to a shareable data `NFS, GlusterFS...`...
 This also assumes that you have configured a fallback for the reverse proxy 
 
 ```bash
@@ -134,7 +134,7 @@ docker node update --label-add hdci-registry-auth=true "your-manager-node"
 ```bash
 docker swarm join --token <your-token> <your-manager-ip>:2377
 
-# If you connected the NFS shared folder
+# If you connected the shared folder
 docker node update --label-add hdci-storage-sync=true "your-worker-node"
 
 # If you want to use the registry (required if you want the drone runner available there)
@@ -144,7 +144,7 @@ docker node update --label-add hdci-registry-auth=true "your-worker-node"
 
 If databases are required make sure to constraint your nodes to the nodes that have a specific label for shared data and to mount your volumes correctly!
 
-If you do not have NFS shared folder, just make sure to have a single node with your own specific label for database nodes!!!
+If you do not have a shared folder, just make sure to have a single node with your own specific label for database nodes!!!
 
 Because of mount propagation, the database nodes should be ensured to be constrained to valid nodes to ensure synchronization.
 
@@ -282,7 +282,7 @@ flowchart TD
         Worker1DockerSocket <--> WorkerVM1DockerSpace
         Worker1DockerSocket <--> DockerSwarmService
 
-        DistantDataWorker1[(NFS Service Link?)]
+        DistantDataWorker1[(Shared Data Service Link?)]
 
         DatabaseService1 <--> DistantDataWorker1
         DatabaseService2 <--> DistantDataWorker1
@@ -292,7 +292,7 @@ flowchart TD
     subgraph WorkerVM2
         direction LR;
 
-        DistantDataWorker2[(NFS Service Link)]
+        DistantDataWorker2[(Shared Data Service Link)]
 
         subgraph WorkerVM2DockerSpace
             Worker2Service1[[Worker WEB UI Replica 2]]

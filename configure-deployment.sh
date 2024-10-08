@@ -103,6 +103,12 @@ if [ -z "${HDCI_TRAEFIK_WEBSECURE_PORT}" ]; then
 	HDCI_TRAEFIK_WEBSECURE_PORT=443
 fi
 
+if [ -z "${HDCI_TRAEFIK_NETWORK_NAME}" ]; then
+	echo "HDCI_TRAEFIK_NETWORK_NAME is not set"
+	echo "Using default value: hdci-traefik-network"
+	HDCI_TRAEFIK_NETWORK_NAME=hdci-traefik-network
+fi
+
 HDCI_STATIC_CONFIGURATION="$HDCI_FOLDER/static-configurations"
 
 # Ensure most of the base folders
@@ -122,7 +128,8 @@ cat .env.example | \
 	sed "s/{{DRONE_DATABASE_SECRET}}/$(generate_secret 32)/g" | \
 	sed "s/{{HDCI_FOLDER}}/$hdci_folder_sed_compliant/g" | \
 	sed "s/{{HDCI_TRAEFIK_WEB_PORT}}/$HDCI_TRAEFIK_WEB_PORT/g" | \
-	sed "s/{{HDCI_TRAEFIK_WEBSECURE_PORT}}/$HDCI_TRAEFIK_WEBSECURE_PORT/g" > .env
+	sed "s/{{HDCI_TRAEFIK_WEBSECURE_PORT}}/$HDCI_TRAEFIK_WEBSECURE_PORT/g" | \
+	sed "s/{{HDCI_TRAEFIK_NETWORK_NAME}}/$HDCI_TRAEFIK_NETWORK_NAME/g" > .env
 
 sed -i "s/{{CLOUDFLARE_TRUSTED_IPS}}/$(get_cloudflare_trusted_ips)/g" \
 	"$HDCI_FOLDER/static-configurations/traefik/conf.yaml"

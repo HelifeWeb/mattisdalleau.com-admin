@@ -169,3 +169,5 @@ docker-data
 
 # vim files
 *.*.swp 
+
+docker-compose-prod.yml

@@ -23,8 +23,8 @@ services:
         - traefik.http.routers.hdci-traefik-api.tls.certResolver=cloudflare
         - traefik.http.services.hdci-traefik-api.loadbalancer.server.port=8080
 
-    networks:
-      - hdci-traefik-network
+    hetworks:
+      - ${HDCI_TRAEFIK_NETWORK_NAME}
 
     image: traefik:v3
 
@@ -72,7 +72,7 @@ services:
     image: traefik/whoami:latest
     restart: always
     networks:
-      - hdci-traefik-network
+      - ${HDCI_TRAEFIK_NETWORK_NAME}
 
   # role >= worker && requires storage sync
   hdci-drone-server:
@@ -118,7 +118,7 @@ services:
       TZ: ${DRONE_TZ:-Europe/Paris}
 
     networks:
-      - hdci-traefik-network
+      - ${HDCI_TRAEFIK_NETWORK_NAME}
 
   # role >= worker && requires registry auth
   hdci-drone-runner-docker:
@@ -147,7 +147,7 @@ services:
       DRONE_RUNNER_NAME: hdci-drone-runner-docker
 
     networks:
-      - hdci-traefik-network
+      - ${HDCI_TRAEFIK_NETWORK_NAME}
 
   # role >= worker && requires storage sync
   hdci-registry:
@@ -182,7 +182,7 @@ services:
       - ${HDCI_FOLDER}/static-configurations/auth/private/registry:/registry/auth:ro
 
     networks:
-      - hdci-traefik-network
+      - ${HDCI_TRAEFIK_NETWORK_NAME}
 
   # role == manager && requires storage sync
   hdci-portainer:
@@ -215,7 +215,7 @@ services:
       - PORTAINER_DOCKER_SOCKET=unix:///var/run/docker.sock
 
     networks:
-      - hdci-traefik-network
+      - ${HDCI_TRAEFIK_NETWORK_NAME}
 
   # role >= worker && requires storage sync
   hdci-uptime-kuma:
@@ -241,9 +241,9 @@ services:
       - ${HDCI_FOLDER}/uptime-kuma:/app/data
 
     networks:
-      - hdci-traefik-network
+      - ${HDCI_TRAEFIK_NETWORK_NAME}
 
 networks:
-  hdci-traefik-network:
-    name: hdci-traefik-network
+  ${HDCI_TRAEFIK_NETWORK_NAME}:
+    name: ${HDCI_TRAEFIK_NETWORK_NAME}
     external: true
