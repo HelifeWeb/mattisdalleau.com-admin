@@ -23,7 +23,7 @@ services:
         - traefik.http.routers.hdci-traefik-api.tls.certResolver=cloudflare
         - traefik.http.services.hdci-traefik-api.loadbalancer.server.port=8080
 
-    hetworks:
+    networks:
       - ${HDCI_TRAEFIK_NETWORK_NAME}
 
     image: traefik:v3
