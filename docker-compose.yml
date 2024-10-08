@@ -14,10 +14,10 @@ services:
       mode: global
       restart_policy:
         condition: any
-      #placement:
-        #constraints:
-          #- node.labels.hdci-storage-sync == true
-          #- node.labels.hdci-proxyable == true
+      placement:
+        constraints:
+          - node.labels.hdci-storage-sync == true
+          - node.labels.hdci-proxyable == true
       labels:
         - traefik.enable=true
 
@@ -132,9 +132,9 @@ services:
       replicas: ${DRONE_RUNNER_REPLICAS:-1}
       restart_policy:
         condition: any
-      #placement:
-        #constraints:
-          #- node.labels.hdci-registry-auth == true
+      placement:
+        constraints:
+          - node.labels.hdci-registry-auth == true
 
     image: drone/drone-runner-docker:1
 
@@ -205,7 +205,9 @@ services:
         - traefik.http.routers.hdci-portainer.entrypoints=websecure
         - traefik.http.routers.hdci-portainer.tls.certResolver=cloudflare
         - traefik.http.services.hdci-portainer.loadbalancer.server.port=9000
-          #- traefik.http.routers.middlewares.auth.basicauth.usersfile=/authfiles/portainer/.htpasswd
+
+        - traefik.http.routers.middlewares.hdci-portainer-auth.basicauth.usersfile=/authfiles/portainer/.htpasswd
+        - traefik.http.routers.hdci-portainer.middlewares=hdci-portainer-auth
 
     image: portainer/portainer-ce:latest
 
