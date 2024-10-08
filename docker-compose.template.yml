@@ -47,8 +47,8 @@ services:
       - ${HDCI_FOLDER}/static-configurations/auth/rev-proxy:/authfiles:ro
 
     command:
-      --entrypoints.web.address=:${HDCI_TRAEFIK_WEB_PORT}
-      --entrypoints.websecure.address=:${HDCI_TRAEFIK_WEBSECURE_PORT}
+      --entrypoints.web.address=:80
+      --entrypoints.websecure.address=:443
 
       --configFile=/traefik-conf/conf.yaml
 
