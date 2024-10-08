@@ -1,10 +1,6 @@
 ---
 version: '3.8'
 
-x-public-validation:
-  hdci_folder: ${HDCI_FOLDER? HDCI Folder missing}
-  hdci_domain: ${HDCI_DOMAIN? HDCI Domain missing}
-
 services:
 
   # role == manager && requires storage sync (Global)
@@ -34,13 +30,10 @@ services:
 
     ports:
       - target: 80
-        published: 80
+        published: ${HDCI_TRAEFIK_WEB_PORT}
         mode: host
       - target: 443
-        published: 443
-        mode: host
-      - target: 8080
-        published: 8080
+        published: ${HDCI_TRAEFIK_WEBSECURE_PORT}
         mode: host
 
     volumes:
@@ -54,6 +47,9 @@ services:
       - ${HDCI_FOLDER}/static-configurations/auth/rev-proxy:/authfiles:ro
 
     command:
+      --entrypoints.web.address=:${HDCI_TRAEFIK_WEB_PORT}
+      --entrypoints.websecure.address=:${HDCI_TRAEFIK_WEBSECURE_PORT}
+
       --configFile=/traefik-conf/conf.yaml
 
     environment:
@@ -103,14 +99,14 @@ services:
 
     environment:
       DRONE_SERVER_HOST: drone.${HDCI_DOMAIN}
-      DRONE_GITHUB_CLIENT_ID: ${DRONE_GITHUB_CLIENT_ID?Missing Drone Github Client ID}
-      DRONE_GITHUB_CLIENT_SECRET: ${DRONE_GITHUB_CLIENT_SECRET?Missing Drone Github Client Secret}
-      DRONE_RPC_SECRET: ${DRONE_RPC_SECRET?Missing Drone RPC Secret}
+      DRONE_GITHUB_CLIENT_ID: ${DRONE_GITHUB_CLIENT_ID}
+      DRONE_GITHUB_CLIENT_SECRET: ${DRONE_GITHUB_CLIENT_SECRET}
+      DRONE_RPC_SECRET: ${DRONE_RPC_SECRET}
       DRONE_USER_FILTER: ${DRONE_USER_FILTER}
       # Server
       DRONE_SERVER_PROTO: ${DRONE_SERVER_PROTO:-https}
       DRONE_TLS_AUTOCERT: ${DRONE_TLS_AUTOCERT:-true}
-      DRONE_USER_CREATE: ${DRONE_USER_CREATE?Missing default user upon creation}
+      DRONE_USER_CREATE: ${DRONE_USER_CREATE}
       DRONE_DATABASE_SECRET: ${DRONE_DATABASE_SECRET}
       # Logs
       DRONE_LOGS_DEBUG: ${DRONE_LOGS_DEBUG:-true}

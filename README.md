@@ -93,7 +93,14 @@ CNAME record: portainer.<your-domain> -> <your-domain>
 
 ```bash
 docker swarm init
-docker stack deploy -c docker-compose.yml hdci
+
+# Then deploy
+# Either manually 
+# envsubst < docker-compose.template.yml > docker-compose.yml
+# docker stack deploy -c docker-compose.yml hdci
+# Or using the script
+bash run.sh
+
 docker node update --label-add hdci-storage-sync=true "your-manager-node"
 docker node update --label-add hdci-proxyable=true "your-manager-node"
 
@@ -115,7 +122,6 @@ This also assumes that you have configured a fallback for the reverse proxy
 
 ```bash
 docker swarm join --token <your-token> <your-manager-ip>:2377
-docker stack deploy -c docker-compose.yml hdci
 docker node update --label-add hdci-storage-sync=true "your-manager-node"
 docker node update --label-add hdci-proxyable=true "your-manager-node"
 docker node update --role manager "your-manager-node"

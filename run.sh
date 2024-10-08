@@ -1,4 +1,6 @@
-export $(cat .env) > /dev/null 2>&1 ;
+export $(cat .env)
+
+envsubst < docker-compose.template.yml > docker-compose.yml
 
 mkdir -p "${HDCI_FOLDER}/traefik/letsencrypt"
 mkdir -p "${HDCI_FOLDER}/traefik/logs"

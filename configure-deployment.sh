@@ -91,6 +91,18 @@ if [ -z "${HDCI_FOLDER}" ]; then
 	HDCI_FOLDER=./docker-data/hdci
 fi
 
+if [ -z "${HDCI_TRAEFIK_WEB_PORT}" ]; then
+	echo "HDCI_TRAEFIK_WEB_PORT is not set"
+	echo "Using default value: 80"
+	HDCI_TRAEFIK_WEB_PORT=80
+fi
+
+if [ -z "${HDCI_TRAEFIK_WEBSECURE_PORT}" ]; then
+	echo "HDCI_TRAEFIK_WEB_PORT is not set"
+	echo "Using default value: 443"
+	HDCI_TRAEFIK_WEBSECURE_PORT=443
+fi
+
 HDCI_STATIC_CONFIGURATION="$HDCI_FOLDER/static-configurations"
 
 # Ensure most of the base folders
@@ -108,7 +120,9 @@ cat .env.example | \
 	sed "s/{{DRONE_RPC_SECRET}}/$(generate_secret 32)/g" | \
 	sed "s/{{GITHUB_FILTERING}}/$DRONE_GITHUB_FILTERING/g" | \
 	sed "s/{{DRONE_DATABASE_SECRET}}/$(generate_secret 32)/g" | \
-	sed "s/{{HDCI_FOLDER}}/$hdci_folder_sed_compliant/g" > .env
+	sed "s/{{HDCI_FOLDER}}/$hdci_folder_sed_compliant/g" | \
+	sed "s/{{HDCI_TRAEFIK_WEB_PORT}}/$HDCI_TRAEFIK_WEB_PORT/g" | \
+	sed "s/{{HDCI_TRAEFIK_WEBSECURE_PORT}}/$HDCI_TRAEFIK_WEBSECURE_PORT/g" > .env
 
 sed -i "s/{{CLOUDFLARE_TRUSTED_IPS}}/$(get_cloudflare_trusted_ips)/g" \
 	"$HDCI_FOLDER/static-configurations/traefik/conf.yaml"
@@ -117,7 +131,7 @@ echo "$CLOUDFLARE_API_EMAIL" > "$HDCI_FOLDER/static-configurations/cloudflare/CL
 echo "$CLOUDFLARE_API_KEY" > "$HDCI_FOLDER/static-configurations/cloudflare/CLOUDFLARE_API_KEY"
 
 private_auth=("registry")
-rev_proxy_auth=("portainer")
+rev_proxy_auth=("traefik" "portainer")
 
 make_auth_services "$rev_proxy_auth" "auth/rev-proxy"
 make_auth_services "$private_auth" "auth/private"
