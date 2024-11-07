@@ -12,12 +12,11 @@ services:
         condition: any
       placement:
         constraints:
-          - node.labels.hdci-storage-sync == true
-          - node.labels.hdci-proxyable == true
+          - node.labels.hdci == true
       labels:
         - traefik.enable=true
 
-        - traefik.http.routers.hdci-traefik-api.rule=Host(`traefik.${HDCI_DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))
+        - traefik.http.routers.hdci-traefik-api.rule=Host(`${HDCI_TRAEFIK_SUBDOMAIN}.${HDCI_DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))
         - traefik.http.routers.hdci-traefik-api.entrypoints=websecure
         - traefik.http.routers.hdci-traefik-api.service=api@internal
         - traefik.http.routers.hdci-traefik-api.tls.certResolver=cloudflare
@@ -65,7 +64,7 @@ services:
         condition: any
       labels:
         - traefik.enable=true
-        - traefik.http.routers.hdci-whoami.rule=Host(`whoami.${HDCI_DOMAIN}`)
+        - traefik.http.routers.hdci-whoami.rule=Host(`${HDCI_WHOAMI_SUBDOMAIN}.${HDCI_DOMAIN}`)
         - traefik.http.routers.hdci-whoami.entrypoints=websecure
         - traefik.http.routers.hdci-whoami.tls.certResolver=cloudflare
         - traefik.http.services.hdci-whoami.loadbalancer.server.port=80
@@ -83,11 +82,11 @@ services:
         condition: any
       placement:
         constraints:
-          - node.labels.hdci-storage-sync == true
+          - node.labels.hdci == true
       labels:
         - traefik.enable=true
         - traefik.http.routers.hdci-drone-entrypoints=websecure
-        - traefik.http.routers.hdci-drone.rule=Host(`drone.${HDCI_DOMAIN}`)
+        - traefik.http.routers.hdci-drone.rule=Host(`${HDCI_DRONE_SUBDOMAIN}.${HDCI_DOMAIN}`)
         - traefik.http.routers.hdci-drone.tls.certResolver=cloudflare
         - traefik.http.services.hdci-drone.loadbalancer.server.port=80
 
@@ -97,7 +96,7 @@ services:
       - ${HDCI_FOLDER}/drone/data:/data
 
     environment:
-      DRONE_SERVER_HOST: drone.${HDCI_DOMAIN}
+      DRONE_SERVER_HOST: ${HDCI_DRONE_SUBDOMAIN}.${HDCI_DOMAIN}
       DRONE_GITHUB_CLIENT_ID: ${DRONE_GITHUB_CLIENT_ID}
       DRONE_GITHUB_CLIENT_SECRET: ${DRONE_GITHUB_CLIENT_SECRET}
       DRONE_RPC_SECRET: ${DRONE_RPC_SECRET}
@@ -129,7 +128,7 @@ services:
         condition: any
       placement:
         constraints:
-          - node.labels.hdci-registry-auth == true
+          - node.labels.hdci == true
 
     image: drone/drone-runner-docker:1
 
@@ -138,7 +137,7 @@ services:
 
     environment:
       DRONE_RPC_PROTO: https
-      DRONE_RPC_HOST: drone.${HDCI_DOMAIN}
+      DRONE_RPC_HOST: ${HDCI_DRONE_SUBDOMAIN}.${HDCI_DOMAIN}
       DRONE_RPC_SECRET: ${DRONE_RPC_SECRET}
       DRONE_RUNNER_CAPACITY: ${DRONE_RUNNER_CAPACITY:-2}
       DRONE_RUNNER_NAME: hdci-drone-runner-docker
@@ -156,12 +155,12 @@ services:
         condition: any
       placement:
         constraints:
-          - node.labels.hdci-storage-sync == true
+          - node.labels.hdci == true
 
       labels:
         - traefik.enable=true
         - traefik.http.routers.hdci-registry.entrypoints=websecure
-        - traefik.http.routers.hdci-registry.rule=Host(`registry.${HDCI_DOMAIN}`)
+        - traefik.http.routers.hdci-registry.rule=Host(`${HDCI_REGISTRY_SUBDOMAIN}.${HDCI_DOMAIN}`)
         - traefik.http.routers.hdci-registry.tls.certResolver=cloudflare
         - traefik.http.services.hdci-registry.loadbalancer.server.port=5000
 
@@ -191,10 +190,10 @@ services:
         condition: any
       placement:
         constraints:
-          - node.labels.hdci-storage-sync == true
+          - node.labels.hdci == true
       labels:
         - traefik.enable=true
-        - traefik.http.routers.hdci-portainer.rule=Host(`portainer.${HDCI_DOMAIN}`)
+        - traefik.http.routers.hdci-portainer.rule=Host(`${HDCI_PORTAINER_SUBDOMAIN}.${HDCI_DOMAIN}`)
         - traefik.http.routers.hdci-portainer.entrypoints=websecure
         - traefik.http.routers.hdci-portainer.tls.certResolver=cloudflare
         - traefik.http.services.hdci-portainer.loadbalancer.server.port=9000
@@ -210,32 +209,6 @@ services:
 
     environment:
       - PORTAINER_DOCKER_SOCKET=unix:///var/run/docker.sock
-
-    networks:
-      - ${HDCI_TRAEFIK_NETWORK_NAME}
-
-  # role >= worker && requires storage sync
-  hdci-uptime-kuma:
-
-    deploy:
-      mode: replicated
-      replicas: ${HDCI_UPTIME_KUMA_REPLICAS:-1}
-      restart_policy:
-        condition: any
-      placement:
-        constraints:
-          - node.labels.hdci-storage-sync == true
-      labels:
-        - traefik.enable=true
-        - traefik.http.routers.hdci-uptime-kuma.entrypoints=websecure
-        - traefik.http.routers.hdci-uptime-kuma.rule=Host(`status.${HDCI_DOMAIN}`)
-        - traefik.http.routers.hdci-uptime-kuma.tls.certResolver=cloudflare
-        - traefik.http.services.hdci-uptime-kuma.loadbalancer.server.port=3001
-
-    image: louislam/uptime-kuma:1
-
-    volumes:
-      - ${HDCI_FOLDER}/uptime-kuma:/app/data
 
     networks:
       - ${HDCI_TRAEFIK_NETWORK_NAME}
