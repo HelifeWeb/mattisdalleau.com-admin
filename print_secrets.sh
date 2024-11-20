@@ -1,6 +1,6 @@
 #!/bin/bash
 print_secret() {
-	file="./data/hdci/static-configurations/auth/$1/.non-encrypted.b64"
+	file="./docker-data/hdci/static-configurations/auth/$1/.non-encrypted.b64"
 	data=$(cat "$file" | base64 -d)
 
 	if [ -z "$data" ]; then
