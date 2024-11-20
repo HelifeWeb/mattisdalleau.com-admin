@@ -86,6 +86,7 @@ CNAME record: registry.<your-domain> -> <your-domain>
 CNAME record: whoami.<your-domain> -> <your-domain>
 CNAME record: portainer.<your-domain> -> <your-domain>
 ```
+Subdomains can be changed in the .env file
 
 ### 6. Deploy the stack
 
@@ -100,13 +101,8 @@ docker swarm init
 # docker stack deploy -c docker-compose-prd.yml hdci
 # Or using the convinience script
 bash run.sh
-
-docker node update --label-add hdci-storage-sync=true "your-manager-node"
-docker node update --label-add hdci-proxyable=true "your-manager-node"
-
-# Now login into the registry
-docker login registry.<your-domain>
-docker node update --label-add hdci-registry-auth=true "your-manager-node"
+docker login <registry-url>
+docker node update --label-add hdci=true "your-manager-node"
 ```
 
 You can check your manager node with the following command:
@@ -121,25 +117,19 @@ This assumes that you configured the deployment or moved the `docker-data` folde
 This also assumes that you have configured a fallback for the reverse proxy 
 
 ```bash
+# setup the nfs path to the same path as the manager node
 docker swarm join --token <your-token> <your-manager-ip>:2377
-docker node update --label-add hdci-storage-sync=true "your-manager-node"
-docker node update --label-add hdci-proxyable=true "your-manager-node"
+docker login <registry-url>
+docker node update --label-add hdci=true "your-manager-node"
 docker node update --role manager "your-manager-node"
-docker login registry.<your-domain>
-docker node update --label-add hdci-registry-auth=true "your-manager-node"
 ```
 
 #### On the worker nodes
 
 ```bash
 docker swarm join --token <your-token> <your-manager-ip>:2377
-
-# If you connected the shared folder
-docker node update --label-add hdci-storage-sync=true "your-worker-node"
-
 # If you want to use the registry (required if you want the drone runner available there)
-docker login registry.<your-domain>
-docker node update --label-add hdci-registry-auth=true "your-worker-node"
+docker login <registry-url>
 ```
 
 If databases are required make sure to constraint your nodes to the nodes that have a specific label for shared data and to mount your volumes correctly!
@@ -153,8 +143,6 @@ Because of mount propagation, the database nodes should be ensured to be constra
 The HOST VM for the `portainer, traefik, registry, drone-ci`. It deploys all the service on manager that can synchronize data and are part of `traefik_network`.
 
 The Worker VM... Thoses containers are not supposed to use static data and focus solely on quering the databases for processing and storing info.
-
-They could if their node have the label of sync data that you provided but it is not recommended and should use Databses services...
 
 Of course more networks may be used to manage better information
 
@@ -171,14 +159,6 @@ If a `?` is present it means that the service is not required but nice to have. 
 It is recommended that the distant data is an external disk that is mounted...
 
 The framework does not provide with backup service by default but it is recommended to provide a backup service for the databases.
-
-### Warning
-
-THE LABEL `hdci-storage-sync=true` SHOULD ONLY BE USED IF YOU SYNCHRONIZED THE `HDCI_FOLDER` OTHERWISE IT WILL CREATE DATA LOSS AND INCONSISTENCIES
-
-IF YOU HAVE MULTIPLE MANAGERS MAKE SURE TO ALWAYS SYNCHRONIZE THE `HDCI_FOLDER` TO A SHARED FOLDER
-
-BY DEFAULT THE CONSTRAINTS OF MOST SERVICES WILL IGNORE ANY NODE THAT DOES NOT HAVE THE LABEL `hdci-storage-sync=true`
 
 ```mermaid
 flowchart TD
